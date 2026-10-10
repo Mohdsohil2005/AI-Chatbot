@@ -1,0 +1,120 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nova AI Chat</title>
+  <link rel="stylesheet" href="style.css" />
+  
+    <link
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/themes/prism-tomorrow.min.css"
+    />
+
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand">
+        <div class="brand-icon">✦</div>
+        <span>Nova AI</span>
+        <button class="mobile-close" id="closeSidebar" aria-label="Close menu">×</button>
+      </div>
+
+      <button class="new-chat" id="newChat">
+        <span>＋</span> New chat
+      </button>
+
+      <div class="history-heading">YOUR CONVERSATIONS</div>
+      <div class="history-list" id="historyList"></div>
+
+      <div class="sidebar-bottom">
+        <span class="status-dot"></span>
+        <span>Local AI workspace</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="menu-button" id="menuButton" aria-label="Open menu">☰</button>
+        <div class="mobile-brand">✦ Nova AI</div>
+        <div class="model-badge"><span></span> AI Assistant</div>
+      </header>
+
+      <section class="chat-area" id="chatArea">
+        <div class="welcome" id="welcome">
+          <div class="welcome-icon">✦</div>
+          <h1>What can I help you with?</h1>
+          <p>Ask anything. Let's figure it out together.</p>
+
+          <div class="suggestions">
+            <button class="suggestion" data-prompt="Explain Python in simple words">
+              <span>⌘</span>
+              <strong>Learn something</strong>
+              <small>Explain a topic simply</small>
+            </button>
+            <button class="suggestion" data-prompt="Give me a beginner-friendly JavaScript project">
+              <span>⌁</span>
+              <strong>Write some code</strong>
+              <small>Build a project together</small>
+            </button>
+            <button class="suggestion" data-prompt="Help me improve my English communication skills">
+              <span>↗</span>
+              <strong>Improve a skill</strong>
+              <small>Practice and learn</small>
+            </button>
+            <button class="suggestion" data-prompt="Give me five creative project ideas">
+              <span>✧</span>
+              <strong>Brainstorm ideas</strong>
+              <small>Explore new possibilities</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="messages" id="messages"></div>
+      </section>
+
+      <footer class="composer-wrap">
+        <form class="composer" id="chatForm">
+          <textarea
+            id="messageInput"
+            placeholder="Message Nova AI..."
+            rows="1"
+            maxlength="10000"
+            aria-label="Your message"
+          ></textarea>
+          <button class="send-button" id="sendButton" type="submit" aria-label="Send message">
+            ↑
+          </button>
+        </form>
+        <p class="disclaimer">AI can make mistakes. Verify important information.</p>
+      </footer>
+    </main>
+  </div>
+
+  <div class="mobile-overlay" id="mobileOverlay"></div>
+  
+<!-- Markdown ko HTML mein convert karega -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<!-- Unsafe HTML ko sanitize karega -->
+<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+
+<!-- Hamara chatbot JavaScript -->
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-python.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-javascript.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-markup.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-css.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.30.0/components/prism-json.min.js"></script>
+
+<script src="script.js"></script>
+
+
+</body>
+</html>

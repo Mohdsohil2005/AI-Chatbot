@@ -761,3 +761,172 @@ button {
     opacity: 1;
   }
 }
+
+/* ==============================
+   TOKEN USAGE COUNTER
+   ============================== */
+
+.topbar {
+  position: relative;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.token-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid #303341;
+  border-radius: 999px;
+  background: #171923;
+  color: #d8d9e4;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.token-icon {
+  color: #b49aff;
+  font-size: 17px;
+}
+
+.token-badge strong {
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+}
+
+.token-unit {
+  color: #9295a7;
+}
+
+.token-details-button,
+.token-close-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  cursor: pointer;
+}
+
+.token-details-button {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #292b39;
+  color: #c8c9d7;
+  font-size: 12px;
+}
+
+.token-details-button:hover {
+  background: #39334f;
+  color: #ffffff;
+}
+
+.token-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 8px);
+  right: 16px;
+  width: min(340px, calc(100vw - 32px));
+  padding: 16px;
+  border: 1px solid #303341;
+  border-radius: 16px;
+  background: #151720;
+  color: #f3f4f8;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+
+.token-popover[hidden] {
+  display: none;
+}
+
+.token-popover-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.token-popover-header strong {
+  font-size: 15px;
+}
+
+.token-popover-header p {
+  margin: 5px 0 0;
+  color: #9295a7;
+  font-size: 12px;
+}
+
+.token-close-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #252735;
+  color: #ffffff;
+  font-size: 21px;
+}
+
+.token-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.token-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid #2d3040;
+  border-radius: 11px;
+  background: #1b1e29;
+  min-width: 0;
+}
+
+.token-stat span {
+  color: #a6a9ba;
+  font-size: 12px;
+}
+
+.token-stat strong {
+  color: #c5b3ff;
+  font-size: 20px;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 600px) {
+  .topbar-right {
+    gap: 7px;
+  }
+
+  .token-badge {
+    gap: 5px;
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+
+  .token-label,
+  .token-unit {
+    display: none;
+  }
+
+  .token-icon {
+    font-size: 15px;
+  }
+
+  .model-badge {
+    padding: 7px 9px;
+    font-size: 11px;
+  }
+
+  .token-popover {
+    right: 8px;
+  }
+}

@@ -133,6 +133,47 @@ def get_session(session_id: str):
     return session
 
 
+@app.get("/api/sessions/{session_id}/usage")
+def get_session_usage(session_id: str):
+    try:
+        session = sessions_collection.find_one(
+            {"session_id": session_id},
+            {
+                "_id": 0,
+                "session_id": 1,
+                "title": 1,
+                "token_usage": 1,
+            },
+        )
+
+        if not session:
+            raise HTTPException(
+                status_code=404,
+                detail="Chat session not found.",
+            )
+
+        usage = session.get("token_usage", {})
+
+        return {
+            "session_id": session["session_id"],
+            "title": session.get("title", "New chat"),
+            "token_usage": {
+                "input_tokens": usage.get("input_tokens", 0),
+                "output_tokens": usage.get("output_tokens", 0),
+                "total_tokens": usage.get("total_tokens", 0),
+                "api_calls": usage.get("api_calls", 0),
+            },
+        }
+
+    except HTTPException:
+        raise
+    except PyMongoError:
+        raise HTTPException(
+            status_code=503,
+            detail="Could not retrieve token usage from MongoDB.",
+        )
+
+
 @app.delete("/api/sessions/{session_id}")
 def delete_session(session_id: str):
     try:

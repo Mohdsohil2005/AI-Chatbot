@@ -930,3 +930,153 @@ button {
     right: 8px;
   }
 }
+.token-badge {
+  position: relative;
+}
+
+.token-popover[hidden] {
+  display: none !important;
+}
+
+.token-popover:not([hidden]) {
+  display: block;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 9999;
+  min-width: 220px;
+  padding: 16px;
+  background: #fff;
+  color: #222;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+/* =========================================
+   NOVA AI — TOKEN DETAILS POPUP THEME FIX
+   ========================================= */
+
+.token-badge {
+  position: relative;
+}
+
+.token-popover[hidden] {
+  display: none !important;
+}
+
+.token-popover:not([hidden]) {
+  display: block;
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  z-index: 99999;
+
+  width: 300px;
+  min-width: 260px;
+  padding: 18px;
+
+  background: #171923 !important;
+  color: #e5e7eb !important;
+
+  border: 1px solid #303546;
+  border-radius: 14px;
+
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+}
+
+/* Popup heading */
+.token-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  padding-bottom: 14px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #303546;
+}
+
+.token-popover-header > strong {
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Close button */
+.token-popover .token-close-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 30px;
+  height: 30px;
+  padding: 0;
+
+  background: #252938 !important;
+  color: #ffffff !important;
+
+  border: 1px solid #383e50;
+  border-radius: 8px;
+
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.token-popover .token-close-button:hover {
+  background: #7c5cff !important;
+  border-color: #7c5cff;
+}
+
+/* Token detail rows */
+.token-detail-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.token-detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.token-detail-row > span {
+  color: #a8b0c3 !important;
+  font-size: 13px;
+}
+
+.token-detail-row > strong {
+  color: #c4b5fd !important;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Prevent text selection from looking like the default blue/grey */
+.token-popover p {
+  color: #e5e7eb !important;
+  margin: 8px 0;
+}
+
+.token-popover p strong {
+  color: #c4b5fd !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .token-popover:not([hidden]) {
+    position: fixed;
+    top: 72px;
+    right: 12px;
+    left: 12px;
+
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+}

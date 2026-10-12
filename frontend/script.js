@@ -11,8 +11,76 @@ const sendButton = document.getElementById("sendButton");
 const sidebar = document.getElementById("sidebar");
 const overlay = document.getElementById("mobileOverlay");
 
+
+// Token counter elements
+const totalTokensElement = document.getElementById("totalTokens");
+const inputTokensElement = document.getElementById("inputTokens");
+const outputTokensElement = document.getElementById("outputTokens");
+const detailTotalTokensElement =
+  document.getElementById("detailTotalTokens");
+const apiCallsElement = document.getElementById("apiCalls");
+
+const tokenDetailsButton =
+  document.getElementById("tokenDetailsButton");
+const tokenPopover = document.getElementById("tokenPopover");
+const closeTokenDetailsButton =
+  document.getElementById("closeTokenDetails");
+
+// Keep track of the displayed session usage.
+let currentTokenUsage = {
+  input_tokens: 0,
+  output_tokens: 0,
+  total_tokens: 0,
+  api_calls: 0,
+};
+
+
+function renderTokenUsage(usage = {}) {
+  const input = Number(usage.input_tokens ?? 0);
+  const output = Number(usage.output_tokens ?? 0);
+  const total = Number(
+    usage.total_tokens ?? input + output
+  );
+  const calls = Number(usage.api_calls ?? 0);
+
+  totalTokensElement.textContent = total.toLocaleString();
+  inputTokensElement.textContent = input.toLocaleString();
+  outputTokensElement.textContent = output.toLocaleString();
+  detailTotalTokensElement.textContent = total.toLocaleString();
+  apiCallsElement.textContent = calls.toLocaleString();
+}
+
+
+async function loadTokenUsage(sessionId) {
+  if (!sessionId) {
+    renderTokenUsage();
+    return;
+  }
+
+  const data = await apiRequest(
+    `/sessions/${encodeURIComponent(sessionId)}/usage`
+  );
+
+  // Ignore a late response if the user switched chats.
+  if (currentSessionId !== sessionId) return;
+
+  renderTokenUsage(data.token_usage);
+}
+
+// Token details popup
+tokenDetailsButton.addEventListener("click", () => {
+  tokenPopover.hidden = !tokenPopover.hidden;
+});
+
+closeTokenDetailsButton.addEventListener("click", () => {
+  tokenPopover.hidden = true;
+});
+
+
 let currentSessionId = null;
 let isSending = false;
+renderTokenUsage();
+tokenPopover.hidden = true;
 
 function createElement(tag, className, text = "") {
   const element = document.createElement(tag);
@@ -289,6 +357,7 @@ renameButton.addEventListener("click", async (event) => {
   }
 }
 
+
 async function openSession(sessionId, fromCommand = false) {
   if (isSending && !fromCommand) return;
 
@@ -305,12 +374,18 @@ async function openSession(sessionId, fromCommand = false) {
     });
 
     welcome.hidden = session.messages.length > 0;
-    loadSessions();
+
+    // Load the saved token totals for this conversation.
+    await loadTokenUsage(session.session_id);
+
+    await loadSessions();
     closeMobileSidebar();
   } catch (error) {
     alert(error.message);
   }
 }
+
+
 
 function newChat() {
   if (isSending) return;
@@ -318,12 +393,19 @@ function newChat() {
   currentSessionId = null;
   messages.replaceChildren();
   welcome.hidden = false;
+
+  // Reset token usage for the new conversation.
+  renderTokenUsage();
+  tokenPopover.hidden = true;
+
   messageInput.value = "";
+  messageInput.style.height = "auto";
   messageInput.focus();
 
   loadSessions();
   closeMobileSidebar();
 }
+
 
 
 async function sendMessage(text) {
@@ -428,11 +510,17 @@ async function sendMessage(text) {
       );
 
       // 7. Clear the current conversation if it was deleted.
+      
       if (currentSessionId === sessionId) {
         currentSessionId = null;
         messages.replaceChildren();
         welcome.hidden = false;
+
+        // Clear the deleted session's token usage.
+        renderTokenUsage();
+        tokenPopover.hidden = true;
       }
+
 
       // 8. Refresh the sidebar.
       await loadSessions();
@@ -471,12 +559,22 @@ async function sendMessage(text) {
       }),
     });
 
-    currentSessionId = result.session_id;
+    
+  currentSessionId = result.session_id;
 
-    typing.remove();
+  typing.remove();
 
-    renderMessage("assistant", result.reply);
-    await loadSessions();
+  renderMessage("assistant", result.reply);
+
+  // Refresh cumulative token usage from MongoDB.
+  try {
+    await loadTokenUsage(result.session_id);
+  } catch (usageError) {
+    console.error("Could not load token usage:", usageError);
+  }
+
+  await loadSessions();
+
   } catch (error) {
     typing.remove();
 

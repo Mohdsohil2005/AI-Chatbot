@@ -118,7 +118,23 @@
                 <span>API Calls</span>
                 <strong id="apiCalls">0</strong>
               </div>
+
+              <div class="token-detail-row">
+                <span>Database Reads</span>
+                <strong id="databaseReads">0</strong>
+              </div>
             </div>
+          </div>
+
+          <!-- Database Reads Indicator -->
+          <div
+            class="token-badge db-reads-badge"
+            id="dbReadsBadge"
+            title="Database reads for the current conversation"
+          >
+            <span class="token-icon db-icon">⛁</span>
+            <span class="token-label">DB Reads</span>
+            <strong id="totalDbReads">0</strong>
           </div>
 
           <!-- Assistant Status -->
@@ -129,51 +145,6 @@
 
         </div>
       </header>
-
-    <!-- Token usage details popup -->
-    <div
-      class="token-popover"
-      id="tokenPopover"
-      hidden
-    >
-      <div class="token-popover-header">
-        <div>
-          <strong>Token Usage</strong>
-          <p>Current conversation</p>
-        </div>
-
-        <button
-          id="closeTokenDetails"
-          class="token-close-button"
-          type="button"
-          aria-label="Close token details"
-        >
-          ×
-        </button>
-      </div>
-
-      <div class="token-stat-grid">
-        <div class="token-stat">
-          <span>Input tokens</span>
-          <strong id="inputTokens">0</strong>
-        </div>
-
-        <div class="token-stat">
-          <span>Output tokens</span>
-          <strong id="outputTokens">0</strong>
-        </div>
-
-        <div class="token-stat">
-          <span>Total tokens</span>
-          <strong id="detailTotalTokens">0</strong>
-        </div>
-
-        <div class="token-stat">
-          <span>API calls</span>
-          <strong id="apiCalls">0</strong>
-        </div>
-      </div>
-    </div>
 
 
       <section class="chat-area" id="chatArea">

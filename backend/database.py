@@ -23,6 +23,7 @@ client = MongoClient(
 
 db = client[MONGODB_DATABASE]
 sessions_collection = db["sessions"]
+db_stats_collection = db["db_stats"]
 
 # Har session ID unique honi chahiye.
 sessions_collection.create_index(

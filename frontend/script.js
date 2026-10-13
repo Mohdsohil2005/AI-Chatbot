@@ -19,6 +19,8 @@ const outputTokensElement = document.getElementById("outputTokens");
 const detailTotalTokensElement =
   document.getElementById("detailTotalTokens");
 const apiCallsElement = document.getElementById("apiCalls");
+const databaseReadsElement = document.getElementById("databaseReads");
+const totalDbReadsElement = document.getElementById("totalDbReads");
 
 const tokenDetailsButton =
   document.getElementById("tokenDetailsButton");
@@ -32,6 +34,7 @@ let currentTokenUsage = {
   output_tokens: 0,
   total_tokens: 0,
   api_calls: 0,
+  database_reads: 0,
 };
 
 
@@ -42,12 +45,30 @@ function renderTokenUsage(usage = {}) {
     usage.total_tokens ?? input + output
   );
   const calls = Number(usage.api_calls ?? 0);
+  const reads = Number(
+    usage.database_reads ?? usage.db_reads ?? 0
+  );
 
   totalTokensElement.textContent = total.toLocaleString();
   inputTokensElement.textContent = input.toLocaleString();
   outputTokensElement.textContent = output.toLocaleString();
   detailTotalTokensElement.textContent = total.toLocaleString();
   apiCallsElement.textContent = calls.toLocaleString();
+
+  if (databaseReadsElement) {
+    databaseReadsElement.textContent = reads.toLocaleString();
+  }
+  if (totalDbReadsElement) {
+    totalDbReadsElement.textContent = reads.toLocaleString();
+  }
+
+  currentTokenUsage = {
+    input_tokens: input,
+    output_tokens: output,
+    total_tokens: total,
+    api_calls: calls,
+    database_reads: reads,
+  };
 }
 
 
@@ -64,7 +85,15 @@ async function loadTokenUsage(sessionId) {
   // Ignore a late response if the user switched chats.
   if (currentSessionId !== sessionId) return;
 
-  renderTokenUsage(data.token_usage);
+  const usageData = {
+    ...(data.token_usage || {}),
+    database_reads:
+      data.token_usage?.database_reads ??
+      data.database_reads ??
+      0,
+  };
+
+  renderTokenUsage(usageData);
 }
 
 // Token details popup
@@ -566,7 +595,17 @@ async function sendMessage(text) {
 
   renderMessage("assistant", result.reply);
 
-  // Refresh cumulative token usage from MongoDB.
+  // Optimistically reflect database reads from chat response
+  if (result.database_reads !== undefined) {
+    if (totalDbReadsElement) {
+      totalDbReadsElement.textContent = Number(result.database_reads).toLocaleString();
+    }
+    if (databaseReadsElement) {
+      databaseReadsElement.textContent = Number(result.database_reads).toLocaleString();
+    }
+  }
+
+  // Refresh cumulative token and database reads usage from MongoDB.
   try {
     await loadTokenUsage(result.session_id);
   } catch (usageError) {

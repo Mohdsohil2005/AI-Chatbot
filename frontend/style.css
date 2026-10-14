@@ -100,6 +100,131 @@ button {
   letter-spacing: 1.4px;
 }
 
+/* Sidebar Search */
+.history-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 4px 10px;
+  background: #161823;
+  border: 1px solid #282c3c;
+  border-radius: 10px;
+  padding: 0 8px 0 10px;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+
+.history-search:focus-within {
+  border-color: #a78bfa;
+  background: #1a1d29;
+  box-shadow: 0 0 0 2px rgba(167, 139, 250, 0.18);
+}
+
+.history-search-icon {
+  color: #777d8d;
+  font-size: 15px;
+  margin-right: 7px;
+  pointer-events: none;
+  flex-shrink: 0;
+  user-select: none;
+  line-height: 1;
+}
+
+.history-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  background: transparent;
+  border: 0;
+  color: var(--text);
+  font-size: 12.5px;
+  padding: 0;
+  outline: none;
+}
+
+.history-search-input::placeholder {
+  color: #777d8d;
+  font-size: 12px;
+}
+
+.clear-search-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #252836;
+  color: #a6a9ba;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.clear-search-button:hover {
+  background: #39334f;
+  color: #ffffff;
+}
+
+.clear-search-button[hidden] {
+  display: none !important;
+}
+
+/* Search empty states */
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 22px 10px;
+  gap: 5px;
+  color: #8b90a0;
+  font-size: 12.5px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.07);
+  margin: 4px 2px;
+}
+
+.history-empty span {
+  font-weight: 500;
+  color: #bfc3d2;
+}
+
+.history-empty small {
+  font-size: 11px;
+  color: #777d8d;
+}
+
+/* Search snippet styling */
+.history-item .history-title {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-item .search-snippet {
+  display: block;
+  font-size: 11px;
+  color: #9297a8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+  font-weight: 400;
+}
+
+.history-item.has-snippet {
+  padding-top: 7px;
+  padding-bottom: 7px;
+}
+
 .history-list {
   display: flex;
   flex-direction: column;

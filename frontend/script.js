@@ -28,6 +28,13 @@ const tokenPopover = document.getElementById("tokenPopover");
 const closeTokenDetailsButton =
   document.getElementById("closeTokenDetails");
 
+// Search elements & state
+const historySearchInput = document.getElementById("historySearchInput");
+const clearSearchButton = document.getElementById("clearSearchButton");
+let allSessionsCache = [];
+let searchDebounceTimer = null;
+let currentSearchQuery = "";
+
 // Keep track of the displayed session usage.
 let currentTokenUsage = {
   input_tokens: 0,
@@ -266,124 +273,222 @@ async function apiRequest(path, options = {}) {
   return data;
 }
 
+function renderSessionList(sessions = [], isSearch = false) {
+  historyList.replaceChildren();
+
+  if (!sessions || sessions.length === 0) {
+    const emptyState = createElement("div", "history-empty");
+    if (isSearch) {
+      const heading = createElement("span", "", "No matching conversations found");
+      const sub = createElement("small", "", "Try a different keyword or topic");
+      emptyState.append(heading, sub);
+    } else {
+      const heading = createElement("span", "", "No conversations yet");
+      const sub = createElement("small", "", "Start a new chat to begin");
+      emptyState.append(heading, sub);
+    }
+    historyList.appendChild(emptyState);
+    return;
+  }
+
+  sessions.forEach((session) => {
+    const row = createElement("div", "history-row");
+
+    const hasSnippet = isSearch && Boolean(session.matching_snippet);
+    const openButton = createElement(
+      "button",
+      `history-item ${
+        session.session_id === currentSessionId ? "active" : ""
+      } ${hasSnippet ? "has-snippet" : ""}`
+    );
+
+    openButton.dataset.sessionId = session.session_id;
+    const titleText = session.title || "New conversation";
+    openButton.title = titleText;
+
+    if (hasSnippet) {
+      const titleSpan = createElement("span", "history-title", titleText);
+      const snippetSpan = createElement("small", "search-snippet", session.matching_snippet);
+      openButton.append(titleSpan, snippetSpan);
+    } else {
+      openButton.textContent = titleText;
+    }
+
+    openButton.addEventListener("click", () => {
+      openSession(session.session_id);
+    });
+
+    const deleteButton = createElement(
+      "button",
+      "delete-chat-button",
+      "×"
+    );
+
+    deleteButton.type = "button";
+    deleteButton.title = "Delete chat";
+    deleteButton.setAttribute("aria-label", "Delete chat");
+
+    deleteButton.addEventListener("click", async (event) => {
+      event.stopPropagation();
+
+      const confirmed = window.confirm(
+        `Delete "${session.title || "this chat"}" permanently?`
+      );
+
+      if (!confirmed) return;
+
+      try {
+        await apiRequest(
+          `/sessions/${encodeURIComponent(session.session_id)}`,
+          { method: "DELETE" }
+        );
+
+        // Clear the visible conversation if it was deleted.
+        if (currentSessionId === session.session_id) {
+          currentSessionId = null;
+          messages.replaceChildren();
+          welcome.hidden = false;
+
+          // Clear deleted session's token usage.
+          renderTokenUsage();
+          tokenPopover.hidden = true;
+        }
+
+        const activeQuery = historySearchInput ? historySearchInput.value.trim() : "";
+        if (activeQuery) {
+          await performSearch(activeQuery);
+        } else {
+          await loadSessions();
+        }
+      } catch (error) {
+        alert(`Could not delete chat: ${error.message}`);
+      }
+    });
+
+    const renameButton = createElement(
+      "button",
+      "rename-chat-button",
+      "✎"
+    );
+
+    renameButton.type = "button";
+    renameButton.title = "Rename chat";
+    renameButton.setAttribute("aria-label", "Rename chat");
+
+    renameButton.addEventListener("click", async (event) => {
+      event.stopPropagation();
+
+      const newTitle = window.prompt(
+        "Enter a new chat title:",
+        session.title || ""
+      );
+
+      if (newTitle === null) return;
+
+      const title = newTitle.trim();
+
+      if (!title) {
+        alert("Chat title cannot be empty.");
+        return;
+      }
+
+      if (title.length > 60) {
+        alert("Chat title cannot exceed 60 characters.");
+        return;
+      }
+
+      try {
+        await apiRequest(
+          `/sessions/${encodeURIComponent(session.session_id)}/title`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ title }),
+          }
+        );
+
+        const activeQuery = historySearchInput ? historySearchInput.value.trim() : "";
+        if (activeQuery) {
+          await performSearch(activeQuery);
+        } else {
+          await loadSessions();
+        }
+      } catch (error) {
+        alert(`Could not rename chat: ${error.message}`);
+      }
+    });
+
+    row.append(openButton, renameButton, deleteButton);
+    historyList.appendChild(row);
+  });
+}
+
 async function loadSessions() {
   try {
     const data = await apiRequest("/sessions");
+    allSessionsCache = data.sessions || [];
 
-    historyList.replaceChildren();
-
-    
-data.sessions.forEach((session) => {
-  const row = createElement("div", "history-row");
-
-  const openButton = createElement(
-    "button",
-    `history-item ${
-      session.session_id === currentSessionId ? "active" : ""
-    }`,
-    session.title || "New conversation"
-  );
-
-  openButton.title = session.title || "New conversation";
-
-  openButton.addEventListener("click", () => {
-    openSession(session.session_id);
-  });
-
-  const deleteButton = createElement(
-    "button",
-    "delete-chat-button",
-    "×"
-  );
-
-  deleteButton.type = "button";
-  deleteButton.title = "Delete chat";
-  deleteButton.setAttribute("aria-label", "Delete chat");
-
-  deleteButton.addEventListener("click", async (event) => {
-    event.stopPropagation();
-
-    const confirmed = window.confirm(
-      `Delete "${session.title || "this chat"}" permanently?`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      await apiRequest(
-        `/sessions/${encodeURIComponent(session.session_id)}`,
-        { method: "DELETE" }
-      );
-
-      // Clear the visible conversation if it was deleted.
-      if (currentSessionId === session.session_id) {
-        currentSessionId = null;
-        messages.replaceChildren();
-        welcome.hidden = false;
-      }
-
-      await loadSessions();
-    } catch (error) {
-      alert(`Could not delete chat: ${error.message}`);
+    // If search is active, keep current search view but update active highlight
+    if (historySearchInput && historySearchInput.value.trim()) {
+      document.querySelectorAll(".history-item").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.sessionId === currentSessionId);
+      });
+      return;
     }
-  });
 
-  
-const renameButton = createElement(
-  "button",
-  "rename-chat-button",
-  "✎"
-);
-
-renameButton.type = "button";
-renameButton.title = "Rename chat";
-renameButton.setAttribute("aria-label", "Rename chat");
-
-renameButton.addEventListener("click", async (event) => {
-  event.stopPropagation();
-
-  const newTitle = window.prompt(
-    "Enter a new chat title:",
-    session.title || ""
-  );
-
-  if (newTitle === null) return;
-
-  const title = newTitle.trim();
-
-  if (!title) {
-    alert("Chat title cannot be empty.");
-    return;
-  }
-
-  if (title.length > 60) {
-    alert("Chat title cannot exceed 60 characters.");
-    return;
-  }
-
-  try {
-    await apiRequest(
-      `/sessions/${encodeURIComponent(session.session_id)}/title`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({ title }),
-      }
-    );
-
-    await loadSessions();
-  } catch (error) {
-    alert(`Could not rename chat: ${error.message}`);
-  }
-});
-
-
-  row.append(openButton, renameButton, deleteButton);
-  historyList.appendChild(row);
-});
-
+    renderSessionList(allSessionsCache, false);
   } catch (error) {
     console.error("Could not load chat history:", error.message);
   }
+}
+
+async function performSearch(rawQuery) {
+  const query = rawQuery.trim();
+  currentSearchQuery = query;
+
+  if (!query) {
+    if (clearSearchButton) clearSearchButton.hidden = true;
+    renderSessionList(allSessionsCache, false);
+    return;
+  }
+
+  if (clearSearchButton) clearSearchButton.hidden = false;
+
+  try {
+    const data = await apiRequest(
+      `/sessions/search?q=${encodeURIComponent(query)}`
+    );
+
+    // Guard against race conditions if query changed while in flight
+    if (currentSearchQuery !== query) return;
+
+    renderSessionList(data.sessions || [], true);
+  } catch (error) {
+    console.error("Could not search chat history:", error.message);
+  }
+}
+
+function handleSearchInput() {
+  const rawValue = historySearchInput.value;
+  if (clearSearchButton) {
+    clearSearchButton.hidden = rawValue.length === 0;
+  }
+
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    performSearch(rawValue);
+  }, 250);
+}
+
+function clearSearch() {
+  if (historySearchInput) {
+    historySearchInput.value = "";
+    historySearchInput.focus();
+  }
+  if (clearSearchButton) {
+    clearSearchButton.hidden = true;
+  }
+  currentSearchQuery = "";
+  renderSessionList(allSessionsCache, false);
 }
 
 
@@ -671,6 +776,19 @@ overlay.addEventListener("click", closeMobileSidebar);
 function closeMobileSidebar() {
   sidebar.classList.remove("open");
   overlay.classList.remove("show");
+}
+
+if (historySearchInput) {
+  historySearchInput.addEventListener("input", handleSearchInput);
+  historySearchInput.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      clearSearch();
+    }
+  });
+}
+
+if (clearSearchButton) {
+  clearSearchButton.addEventListener("click", clearSearch);
 }
 
 loadSessions();

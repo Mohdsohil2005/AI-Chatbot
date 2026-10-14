@@ -30,6 +30,7 @@ sessions_collection.create_index(
     "session_id",
     unique=True
 )
+sessions_collection.create_index([("updated_at", -1)])
 
 
 def check_database():

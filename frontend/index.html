@@ -27,6 +27,30 @@
       </button>
 
       <div class="history-heading">YOUR CONVERSATIONS</div>
+
+      <div class="history-search" id="historySearch">
+        <span class="history-search-icon" aria-hidden="true">⌕</span>
+        <input
+          type="text"
+          id="historySearchInput"
+          class="history-search-input"
+          placeholder="Search topics or messages..."
+          aria-label="Search topics or messages"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button
+          type="button"
+          id="clearSearchButton"
+          class="clear-search-button"
+          aria-label="Clear search"
+          title="Clear search"
+          hidden
+        >
+          ×
+        </button>
+      </div>
+
       <div class="history-list" id="historyList"></div>
 
       <div class="sidebar-bottom">

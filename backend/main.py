@@ -1,10 +1,11 @@
 
 import os
+import re
 from datetime import datetime, timezone
 from uuid import uuid4
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from openai import OpenAI, APIError
 from pydantic import BaseModel, Field
@@ -175,6 +176,87 @@ def get_sessions():
         )
 
 
+@app.get("/api/sessions/search")
+@app.get("/api/search")
+def search_sessions(
+    q: str = Query("", description="Search query for titles or messages"),
+    limit: int = Query(50, ge=1, le=100)
+):
+    query = q.strip()
+    if not query:
+        return {"sessions": [], "query": ""}
+
+    escaped_query = re.escape(query)
+
+    try:
+        filter_query = {
+            "$or": [
+                {"title": {"$regex": escaped_query, "$options": "i"}},
+                {"messages.content": {"$regex": escaped_query, "$options": "i"}},
+            ]
+        }
+
+        projection = {
+            "_id": 0,
+            "session_id": 1,
+            "title": 1,
+            "created_at": 1,
+            "updated_at": 1,
+            "messages.content": 1,
+        }
+
+        cursor = (
+            sessions_collection.find(filter_query, projection)
+            .sort("updated_at", -1)
+            .limit(limit)
+        )
+        matched_sessions = list(cursor)
+
+        if matched_sessions:
+            record_db_read(count=len(matched_sessions))
+
+        results = []
+        for session in matched_sessions:
+            messages = session.pop("messages", [])
+            title = session.get("title", "")
+            title_matched = bool(re.search(escaped_query, title, re.IGNORECASE))
+            matching_snippet = None
+
+            for msg in messages:
+                content = msg.get("content", "")
+                match = re.search(escaped_query, content, re.IGNORECASE)
+                if match:
+                    start = max(0, match.start() - 35)
+                    end = min(len(content), match.end() + 45)
+                    snippet = " ".join(content[start:end].split()).strip()
+                    if start > 0:
+                        snippet = "..." + snippet
+                    if end < len(content):
+                        snippet = snippet + "..."
+                    matching_snippet = snippet
+                    break
+
+            results.append({
+                "session_id": session["session_id"],
+                "title": title or "New conversation",
+                "created_at": session.get("created_at"),
+                "updated_at": session.get("updated_at"),
+                "matching_snippet": matching_snippet,
+                "matched_in": (
+                    "both" if (title_matched and matching_snippet)
+                    else ("title" if title_matched else "message")
+                ),
+            })
+
+        return {"sessions": results, "query": query}
+
+    except PyMongoError:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable. Search failed."
+        )
+
+
 @app.get("/api/sessions/{session_id}")
 def get_session(session_id: str):
     try:
@@ -267,7 +349,7 @@ def get_database_reads():
         "counting_rules": {
             "rule_1_chat_turn": "Each chat interaction executes 1 read on MongoDB to load session history context (+1 to session and global).",
             "rule_2_session_fetch": "Opening/fetching a session via GET /api/sessions/{session_id} executes 1 document read on MongoDB (+1 to session and global).",
-            "rule_3_sessions_list": "GET /api/sessions reads documents for the sidebar history (+N to global reads, where N is returned documents count).",
+            "rule_3_sessions_list": "GET /api/sessions and GET /api/sessions/search read documents from MongoDB (+N to global reads, where N is returned documents count).",
             "rule_4_inspection": "GET /api/sessions/{session_id}/usage and GET /api/database/reads are inspection queries that report current counters without inflating metrics.",
             "persistence": "Persisted in MongoDB: 'database_reads' and 'token_usage.database_reads' on sessions, and 'db_stats' collection for global totals."
         }

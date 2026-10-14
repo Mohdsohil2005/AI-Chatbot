@@ -60,6 +60,7 @@ class ChatResponse(BaseModel):
     output_tokens: int = 0
     total_tokens: int = 0
     database_reads: int = 0
+    title: str | None = None
 
 
 # ============================================================================
@@ -119,20 +120,460 @@ def record_db_read(session_id: str | None = None, count: int = 1):
             pass
 
 
+# ============================================================================
+# SMART CONVERSATION TITLE GENERATION
+# ============================================================================
+
+TECH_TERMS_MAP = {
+    # Languages & Runtimes
+    "python": "Python",
+    "javascript": "JavaScript",
+    "typescript": "TypeScript",
+    "html": "HTML",
+    "html5": "HTML5",
+    "css": "CSS",
+    "css3": "CSS3",
+    "sql": "SQL",
+    "nosql": "NoSQL",
+    "java": "Java",
+    "rust": "Rust",
+    "golang": "Go",
+    "cpp": "C++",
+    "c#": "C#",
+    "php": "PHP",
+    "ruby": "Ruby",
+    # Frameworks & Libraries
+    "react": "React",
+    "vue": "Vue",
+    "angular": "Angular",
+    "nextjs": "Next.js",
+    "next.js": "Next.js",
+    "nuxtjs": "Nuxt",
+    "nuxt.js": "Nuxt",
+    "nodejs": "Node.js",
+    "node.js": "Node.js",
+    "express": "Express",
+    "expressjs": "Express",
+    "fastapi": "FastAPI",
+    "flask": "Flask",
+    "django": "Django",
+    "tailwind": "Tailwind",
+    "tailwindcss": "Tailwind CSS",
+    "bootstrap": "Bootstrap",
+    "redux": "Redux",
+    # React Hooks & Concepts
+    "useeffect": "useEffect",
+    "usestate": "useState",
+    "usecontext": "useContext",
+    "usememo": "useMemo",
+    "usecallback": "useCallback",
+    "useref": "useRef",
+    "usereducer": "useReducer",
+    # Databases & Caches
+    "mongodb": "MongoDB",
+    "mongo": "MongoDB",
+    "postgresql": "PostgreSQL",
+    "postgres": "PostgreSQL",
+    "mysql": "MySQL",
+    "sqlite": "SQLite",
+    "redis": "Redis",
+    # DevOps, Infra & Cloud
+    "docker": "Docker",
+    "kubernetes": "Kubernetes",
+    "k8s": "Kubernetes",
+    "aws": "AWS",
+    "gcp": "GCP",
+    "azure": "Azure",
+    "git": "Git",
+    "github": "GitHub",
+    "gitlab": "GitLab",
+    "linux": "Linux",
+    "nginx": "Nginx",
+    # Protocols, Auth, & Standards
+    "api": "API",
+    "apis": "APIs",
+    "rest": "REST",
+    "restful": "RESTful",
+    "graphql": "GraphQL",
+    "jwt": "JWT",
+    "oauth": "OAuth",
+    "oauth2": "OAuth2",
+    "http": "HTTP",
+    "https": "HTTPS",
+    "cors": "CORS",
+    "json": "JSON",
+    "crud": "CRUD",
+    "url": "URL",
+    "urls": "URLs",
+    "uri": "URI",
+    "uuid": "UUID",
+    "id": "ID",
+    "dom": "DOM",
+    "sdk": "SDK",
+    "sdks": "SDKs",
+    # AI / ML
+    "ai": "AI",
+    "ml": "ML",
+    "llm": "LLM",
+    "llms": "LLMs",
+    "nlp": "NLP",
+    "gpt": "GPT",
+    "ui": "UI",
+    "ux": "UX",
+    # HTTP Status Codes
+    "500": "500",
+    "404": "404",
+    "403": "403",
+    "401": "401",
+    "400": "400",
+    "502": "502",
+    "503": "503",
+}
+
+GREETING_PATTERN = re.compile(
+    r"^(?:hi+|hello+|hey+|heyy+|hola|namaste|namaskar|greetings|sup|yo|"
+    r"good\s+(?:morning|afternoon|evening|day|night)|"
+    r"test|testing|ping|pong|ok|okay|k|cool|thanks|thank\s+you|thx|"
+    r"bye|goodbye|start|help|nova|ai|bot)"
+    r"(?:\s+(?:there|bot|ai|nova|sir|bro|bhai|friend|all|team))?[.!?\s]*$",
+    re.IGNORECASE,
+)
+
+MINOR_WORDS = {
+    "a", "an", "the", "and", "but", "or", "for", "nor", "on", "at",
+    "to", "from", "by", "with", "in", "of", "vs", "versus", "via",
+    "me", "se", "ka", "ki", "ke", "ko", "par"
+}
+
+
+def format_title_casing(text: str) -> str:
+    """
+    Format words into title case while preserving technical terms, acronyms,
+    and camelCase words, keeping minor connector words lowercase unless first/last.
+    """
+    tokens = text.split()
+    if not tokens:
+        return ""
+
+    formatted = []
+    total = len(tokens)
+
+    for i, token in enumerate(tokens):
+        clean_core = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", token)
+        lower_core = clean_core.lower()
+
+        if lower_core in TECH_TERMS_MAP:
+            matched_term = TECH_TERMS_MAP[lower_core]
+            prefix = token[: len(token) - len(clean_core) if clean_core else 0]
+            suffix = token[len(prefix) + len(clean_core):] if clean_core else ""
+            formatted.append(f"{prefix}{matched_term}{suffix}")
+        elif i > 0 and i < total - 1 and lower_core in MINOR_WORDS:
+            formatted.append(token.lower())
+        else:
+            if token.isupper() and len(token) <= 4:
+                formatted.append(token)
+            elif any(c.isupper() for c in token[1:]):
+                formatted.append(token)
+            else:
+                formatted.append(token.capitalize())
+
+    return " ".join(formatted)
+
+
+def enforce_title_limits(title: str, max_words: int = 7, max_chars: int = 60) -> str:
+    """
+    Ensure the title stays within 3-7 words, ideally 25-50 chars, max 60 chars.
+    Never cuts words mid-word or ends with dangling punctuation.
+    """
+    clean = " ".join(title.split()).strip(" \t\n.,!?:;-")
+    if not clean:
+        return "New Chat"
+
+    words = clean.split()
+    if len(words) > max_words:
+        clean = " ".join(words[:max_words])
+
+    if len(clean) > max_chars:
+        trimmed = clean[:max_chars - 3].rsplit(" ", 1)[0].rstrip(" ,.-:;!?")
+        clean = trimmed
+
+    return clean or "New Chat"
+
+
 def generate_chat_title(message: str) -> str:
-    # Remove extra spaces and newlines.
-    clean_message = " ".join(message.split())
+    """
+    Deterministically generates a concise, topic-focused title from the first message.
+    - Preserves English, Hindi, Hinglish, technical terms, and acronyms.
+    - Avoids extra AI calls or token consumption.
+    - Yields 3-7 words, ~25-50 characters (max 60).
+    - Falls back to 'New Chat' for greetings or uninformative inputs.
+    """
+    if not message:
+        return "New Chat"
 
-    # Remove unnecessary punctuation from the ends.
-    clean_message = clean_message.strip(" \t\n.,!?-")
+    raw = message.strip()
 
-    # Keep the sidebar title short and readable.
-    max_length = 45
+    # 1. Code snippet handling
+    if "```" in raw:
+        text_outside = re.sub(r"```[\s\S]*?```", "", raw).strip()
+        clean_outside = " ".join(text_outside.split())
+        if not clean_outside or re.search(
+            r"^(?:please\s+)?(?:explain|check|review|debug|what\s+does|here\s+is|look\s+at)?\s*(?:this|the|my)?\s*code\b",
+            clean_outside,
+            re.IGNORECASE,
+        ):
+            return "Code Explanation"
+        raw = clean_outside
 
-    if len(clean_message) > max_length:
-        return clean_message[:max_length - 3].rstrip() + "..."
+    # Inline code quotes: `useEffect` -> useEffect
+    raw = re.sub(r"`([^`]+)`", r"\1", raw)
 
-    return clean_message or "New Chat"
+    # 2. URL handling
+    url_match = re.search(r"https?://(?:www\.)?([^\s/$.?#].[^\s]*)", raw, re.IGNORECASE)
+    if url_match:
+        full_url = url_match.group(0)
+        domain_path = url_match.group(1)
+        if raw.strip() == full_url:
+            domain = domain_path.split("/")[0]
+            parts = domain_path.split("/")
+            if "github.com" in domain and len(parts) >= 3:
+                return f"{format_title_casing(parts[2])} Repository Overview"
+            return f"{format_title_casing(domain.split('.')[0])} Link Overview"
+        raw = raw.replace(full_url, "").strip()
+
+    clean_message = " ".join(raw.split()).strip(" \t\n.,!?:;-")
+
+    # 3. Short greetings / uninformative check
+    if not clean_message or len(clean_message) < 2 or GREETING_PATTERN.match(clean_message):
+        return "New Chat"
+
+    if not any(c.isalnum() for c in clean_message):
+        return "New Chat"
+
+    # 4. Explicit code explanation questions
+    if re.search(
+        r"^(?:can\s+you\s+(?:please\s+)?)?(?:please\s+)?explain\s+(?:this|the|my)?\s*code\b",
+        clean_message,
+        re.IGNORECASE,
+    ):
+        return "Code Explanation"
+    if re.search(
+        r"^(?:what\s+does\s+(?:this|the|my)?\s*code\s+do|code\s+(?:ko\s+)?(?:explain|samjhao|batao))\b",
+        clean_message,
+        re.IGNORECASE,
+    ):
+        return "Code Explanation"
+
+    # 5. Debugging & Error handling (e.g. "Why is my API returning 500?")
+    m_err = re.search(
+        r"^(?:why\s+is\s+(?:my|the)?\s*|why\s+does\s+(?:my|the)?\s*)"
+        r"([a-zA-Z0-9_\-\s]+?)\s*"
+        r"(?:returning|throwing|giving|responding\s+with|showing)\s+"
+        r"(\d{3}|error[s]?|[a-zA-Z]+error)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_err:
+        target = format_title_casing(m_err.group(1).strip())
+        raw_code = m_err.group(2).strip()
+        code_str = raw_code.upper() if raw_code.isdigit() else format_title_casing(raw_code)
+        if "error" not in code_str.lower():
+            code_str = f"{code_str} Error"
+        return enforce_title_limits(f"Debugging {target} {code_str}")
+
+    m_fix = re.search(
+        r"^(?:how\s+to\s+fix|how\s+can\s+i\s+fix|fixing|fix|debug|debugging)\s+"
+        r"([a-zA-Z0-9_\-\s]+?)\s+(?:error|issue|bug|exception)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_fix:
+        target = format_title_casing(m_fix.group(1).strip())
+        return enforce_title_limits(f"Debugging {target} Error")
+
+    m_hinglish_err = re.search(
+        r"^([a-zA-Z0-9_\-\s]+?)\s+(?:me\s+)?(?:error|issue|bug)\s+(?:aa\s+raha\s+hai|kaise\s+fix\s+kare)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_hinglish_err:
+        target = format_title_casing(m_hinglish_err.group(1).strip())
+        return enforce_title_limits(f"Debugging {target} Error")
+
+    # 6. "Explain X in simple words" -> "X Explained Simply"
+    m_simple = re.search(
+        r"^(?:can\s+you\s+(?:please\s+)?)?(?:please\s+)?explain\s+"
+        r"([a-zA-Z0-9_\-\s]+?)\s+"
+        r"(?:in\s+simple\s+words|in\s+simple\s+terms|in\s+easy\s+words|in\s+easy\s+language|simply)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_simple:
+        topic = format_title_casing(m_simple.group(1).strip())
+        return enforce_title_limits(f"{topic} Explained Simply")
+
+    # 7. "How does X work?" -> "Understanding X"
+    m_how_work = re.search(
+        r"^(?:how\s+does|how\s+do)\s+([a-zA-Z0-9_\-\s]+?)\s+work(?:ing)?\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_how_work:
+        topic = format_title_casing(m_how_work.group(1).strip())
+        return enforce_title_limits(f"Understanding {topic}")
+
+    # 8. Hinglish: "React me useEffect kaise kaam karta hai" -> "React useEffect Explained"
+    m_hinglish_tech = re.search(
+        r"^([a-zA-Z0-9_\-]+)\s+me\s+([a-zA-Z0-9_\-\s]+?)\s+"
+        r"kaise\s+(?:kaam\s+karta\s+hai|work\s+karta\s+hai|chalta\s+hai)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_hinglish_tech:
+        t1 = format_title_casing(m_hinglish_tech.group(1).strip())
+        t2 = format_title_casing(m_hinglish_tech.group(2).strip())
+        return enforce_title_limits(f"{t1} {t2} Explained")
+
+    m_hinglish_single = re.search(
+        r"^([a-zA-Z0-9_\-\s]+?)\s+"
+        r"(?:kaise\s+(?:kaam\s+karta\s+hai|work\s+karta\s+hai)|kya\s+hota\s+hai|kya\s+hai)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_hinglish_single:
+        topic = format_title_casing(m_hinglish_single.group(1).strip())
+        return enforce_title_limits(f"{topic} Explained")
+
+    # 9. Hinglish: "JWT refresh token implement kaise kare" -> "JWT Refresh Token Implementation"
+    m_hinglish_impl = re.search(
+        r"^([a-zA-Z0-9_\-\s]+?)\s+"
+        r"(?:ko\s+)?(implement|banaye|banao|setup|integrate)\s+"
+        r"kaise\s+(?:kare[n]?|karte\s+hai[n]?|hota\s+hai)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_hinglish_impl:
+        raw_topic = m_hinglish_impl.group(1).strip()
+        clean_topic = re.sub(r"\bme\b", "", raw_topic, flags=re.IGNORECASE)
+        clean_topic = " ".join(clean_topic.split())
+        topic = format_title_casing(clean_topic)
+        action = m_hinglish_impl.group(2).lower()
+        intent = {
+            "implement": "Implementation",
+            "banaye": "Creation Guide",
+            "banao": "Creation Guide",
+            "setup": "Setup Guide",
+            "integrate": "Integration",
+        }.get(action, "Implementation")
+        return enforce_title_limits(f"{topic} {intent}")
+
+    # 10. English: "How to implement/build/create X"
+    m_eng_impl = re.search(
+        r"^(?:how\s+to|how\s+do\s+i|how\s+can\s+i)\s+"
+        r"(implement|build|create|setup|configure|integrate)\s+"
+        r"([a-zA-Z0-9_\-\s]+?)(?:\s+in\s+([a-zA-Z0-9_\-\s]+))?\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_eng_impl:
+        action = m_eng_impl.group(1).lower()
+        topic = format_title_casing(m_eng_impl.group(2).strip())
+        ctx = format_title_casing(m_eng_impl.group(3).strip()) if m_eng_impl.group(3) else ""
+        noun = {
+            "implement": "Implementation",
+            "build": "Building",
+            "create": "Creation",
+            "setup": "Setup",
+            "configure": "Configuration",
+            "integrate": "Integration",
+        }.get(action, "Guide")
+        if ctx:
+            return enforce_title_limits(f"{topic} {noun} in {ctx}")
+        return enforce_title_limits(f"{topic} {noun}")
+
+    # 11. Comparison: "Difference between X and Y" / "X vs Y"
+    m_diff = re.search(
+        r"^(?:what\s+is\s+the\s+)?difference\s+between\s+([a-zA-Z0-9_\-\s]+?)\s+and\s+([a-zA-Z0-9_\-\s]+?)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_diff:
+        t1 = format_title_casing(m_diff.group(1).strip())
+        t2 = format_title_casing(m_diff.group(2).strip())
+        return enforce_title_limits(f"{t1} vs {t2} Comparison")
+
+    m_vs = re.search(
+        r"^([a-zA-Z0-9_\-]+)\s+(?:vs|versus)\s+([a-zA-Z0-9_\-]+)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_vs:
+        t1 = format_title_casing(m_vs.group(1).strip())
+        t2 = format_title_casing(m_vs.group(2).strip())
+        return enforce_title_limits(f"{t1} vs {t2} Comparison")
+
+    # 12. "Explain X" -> "X Explained"
+    m_exp = re.search(
+        r"^(?:can\s+you\s+(?:please\s+)?)?(?:please\s+)?explain\s+"
+        r"([a-zA-Z0-9_\-\s]+?)\??$",
+        clean_message,
+        re.IGNORECASE,
+    )
+    if m_exp:
+        raw_topic = m_exp.group(1).strip()
+        if raw_topic.lower() not in ("this", "it", "code", "this code", "everything"):
+            topic = format_title_casing(raw_topic)
+            return enforce_title_limits(f"{topic} Explained")
+
+    # 13. General normalization pipeline for arbitrary questions/topics
+    topic_candidate = clean_message
+
+    prefix_strip = [
+        r"^(?:hi|hello|hey|greetings|namaste)\s+(?:nova|bot|ai|there)?[,\s]+",
+        r"^(?:can\s+you\s+(?:please\s+)?(?:tell\s+me|show\s+me|help\s+me\s+with|explain(?:\s+to\s+me)?|give\s+me)?)\s+",
+        r"^(?:could\s+you\s+(?:please\s+)?(?:tell\s+me|show\s+me|help\s+me|explain)?)\s*",
+        r"^(?:please\s+(?:tell\s+me|explain|show\s+me|help\s+me\s+with|provide|give\s+me)?)\s*",
+        r"^(?:i\s+want\s+to\s+(?:know|learn|understand|build|create|implement))\s+(?:about\s+)?",
+        r"^(?:i\s+need\s+help\s+(?:with|to))\s+",
+        r"^(?:tell\s+me\s+(?:about|how\s+to)?)\s*",
+        r"^(?:give\s+me\s+(?:an?\s+)?(?:example\s+of|overview\s+of|tutorial\s+on)?)\s*",
+        r"^(?:what\s+is\s+(?:the\s+)?(?:best\s+way\s+to)?)\s*",
+        r"^(?:what\s+are\s+(?:the\s+)?)\s*",
+        r"^(?:mujhe\s+(?:batao|jan na\s+hai|seekhna\s+hai))\s+",
+        r"^(?:kripya\s+)?",
+    ]
+    for pattern in prefix_strip:
+        topic_candidate = re.sub(pattern, "", topic_candidate, flags=re.IGNORECASE)
+
+    suffix_strip = [
+        r"\s+(?:in\s+simple\s+(?:words|terms)|simply|for\s+beginners)$",
+        r"\s+(?:step\s+by\s+step|with\s+examples?|in\s+detail)$",
+        r"\s+(?:batao|samjhao|bataiye|samjhaiye|karo)$",
+        r"\s+(?:kya\s+hota\s+hai|kya\s+hai)$",
+        r"\s+(?:kaise\s+kare[n]?|kaise\s+hota\s+hai)$",
+        r"\s+(?:please|thanks|thank\s+you|thx)$",
+    ]
+    for pattern in suffix_strip:
+        topic_candidate = re.sub(pattern, "", topic_candidate, flags=re.IGNORECASE)
+
+    topic_candidate = topic_candidate.strip(" \t\n.,!?:;-")
+
+    if not topic_candidate or len(topic_candidate) < 2:
+        return "New Chat"
+
+    formatted = format_title_casing(topic_candidate)
+    return enforce_title_limits(formatted)
+
+
+@app.get("/api/test-title")
+def test_title(message: str = Query(...)):
+    generated = generate_chat_title(message)
+    return {
+        "input": message,
+        "title": generated,
+        "word_count": len(generated.split()),
+        "char_count": len(generated),
+    }
 
 
 @app.get("/api/health")
@@ -397,7 +838,7 @@ def rename_session(session_id: str, request: RenameRequest):
     try:
         result = sessions_collection.update_one(
             {"session_id": session_id},
-            {"$set": {"title": title, "updated_at": now()}}
+            {"$set": {"title": title, "is_renamed": True, "updated_at": now()}}
         )
 
         if result.matched_count == 0:
@@ -456,6 +897,7 @@ def chat(request: ChatRequest):
             session = {
                 "session_id": session_id,
                 "title": generate_chat_title(message),
+                "is_renamed": False,
                 "messages": [],
                 "token_usage": {
                     "input_tokens": 0,
@@ -483,9 +925,29 @@ def chat(request: ChatRequest):
             if item.get("role") in ("user", "assistant")
         ]
 
+        # Upgrade title from generic greeting fallback if new message is substantive and session was not manually renamed.
+        existing_title = session.get("title", "")
+        title_update = {}
+        if (
+            existing_title in ("New Chat", "New conversation", "")
+            and not session.get("is_renamed", False)
+        ):
+            candidate_title = generate_chat_title(message)
+            if candidate_title not in ("New Chat", "New conversation", ""):
+                title_update["title"] = candidate_title
+                session["title"] = candidate_title
+
+        update_set = {"updated_at": timestamp}
+        if title_update:
+            update_set.update(title_update)
+
+        filter_query = {"session_id": session_id}
+        if title_update:
+            filter_query["is_renamed"] = {"$ne": True}
+
         # Save the user's message.
         sessions_collection.update_one(
-            {"session_id": session_id},
+            filter_query,
             {
                 "$push": {
                     "messages": {
@@ -494,7 +956,7 @@ def chat(request: ChatRequest):
                         "timestamp": timestamp,
                     }
                 },
-                "$set": {"updated_at": timestamp},
+                "$set": update_set,
             },
         )
 
@@ -596,6 +1058,7 @@ def chat(request: ChatRequest):
         output_tokens=output_tokens,
         total_tokens=total_tokens,
         database_reads=current_reads,
+        title=session.get("title"),
     )
 
 

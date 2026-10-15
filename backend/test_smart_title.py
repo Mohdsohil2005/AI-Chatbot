@@ -40,7 +40,7 @@ def test_required_exact_examples():
         assert actual == expected, (
             f"Failed on input '{user_input}': expected '{expected}', got '{actual}'"
         )
-    print("✓ All 8 exact required specification examples PASSED.")
+    print("[PASS] All 8 exact required specification examples PASSED.")
 
 
 def test_hindi_hinglish_inquiries():
@@ -64,7 +64,7 @@ def test_hindi_hinglish_inquiries():
         assert actual == expected, (
             f"Failed on Hindi/Hinglish input '{user_input}': expected '{expected}', got '{actual}'"
         )
-    print("✓ All Hindi/Hinglish inquiry tests PASSED.")
+    print("[PASS] All Hindi/Hinglish inquiry tests PASSED.")
 
 
 def test_implementation_and_error_queries():
@@ -88,7 +88,7 @@ def test_implementation_and_error_queries():
         assert actual == expected, (
             f"Failed on implementation/error input '{user_input}': expected '{expected}', got '{actual}'"
         )
-    print("✓ All implementation and error debugging tests PASSED.")
+    print("[PASS] All implementation and error debugging tests PASSED.")
 
 
 def test_greetings_and_uninformative_inputs():
@@ -126,7 +126,7 @@ def test_greetings_and_uninformative_inputs():
         assert actual == "New Chat", (
             f"Failed on greeting '{g}': expected 'New Chat', got '{actual}'"
         )
-    print("✓ All greetings and uninformative input tests PASSED.")
+    print("[PASS] All greetings and uninformative input tests PASSED.")
 
 
 def test_comparisons_and_definitions():
@@ -145,7 +145,7 @@ def test_comparisons_and_definitions():
         assert actual == expected, (
             f"Failed on comparison/definition '{user_input}': expected '{expected}', got '{actual}'"
         )
-    print("✓ All comparison and definition tests PASSED.")
+    print("[PASS] All comparison and definition tests PASSED.")
 
 
 def test_code_snippets_and_urls():
@@ -168,7 +168,7 @@ def test_code_snippets_and_urls():
     github_url = "https://github.com/tiangolo/fastapi"
     assert generate_chat_title(github_url) == "FastAPI Repository Overview"
 
-    print("✓ All code snippet and URL handling tests PASSED.")
+    print("[PASS] All code snippet and URL handling tests PASSED.")
 
 
 def test_quality_and_length_constraints():
@@ -191,7 +191,7 @@ def test_quality_and_length_constraints():
     word_count = len(title.split())
     assert word_count <= 6, f"Word count {word_count} exceeds 6 words: '{title}'"
 
-    print("✓ Quality and length constraint tests PASSED.")
+    print("[PASS] Quality and length constraint tests PASSED.")
 
 
 def run_all_tests():
@@ -203,7 +203,7 @@ def run_all_tests():
     test_comparisons_and_definitions()
     test_code_snippets_and_urls()
     test_quality_and_length_constraints()
-    print("\n🎉 ALL TEST SUITES PASSED SUCCESSFULLY!")
+    print("\nALL TEST SUITES PASSED SUCCESSFULLY!")
 
 
 if __name__ == "__main__":

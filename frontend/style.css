@@ -457,6 +457,7 @@ button {
 }
 
 .composer textarea {
+  flex: 1;
   width: 100%;
   max-height: 180px;
   resize: none;
@@ -1210,3 +1211,156 @@ button {
     max-width: none;
   }
 }
+
+/* ==========================================================================
+   File Attachment & Document Q&A Styles
+   ========================================================================== */
+
+.attach-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 37px;
+  height: 37px;
+  flex-shrink: 0;
+  border: 1px solid #303442;
+  border-radius: 12px;
+  background: #1e212b;
+  color: #a6a9ba;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  padding: 0;
+}
+
+.attach-button:hover:not(:disabled) {
+  background: #2b3040;
+  color: #e0e2ea;
+  border-color: #4a5065;
+}
+
+.attach-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.attachment-preview {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+}
+
+.attachment-preview[hidden] {
+  display: none !important;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  background: #1e2230;
+  border: 1px solid #383e54;
+  border-radius: 12px;
+  padding: 6px 10px 6px 12px;
+  font-size: 13px;
+  max-width: 100%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  animation: fadeInChip 0.2s ease-out;
+}
+
+@keyframes fadeInChip {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.attachment-chip-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.attachment-chip-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 340px;
+}
+
+.attachment-chip-name {
+  color: #f1f5f9;
+  font-weight: 500;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-chip-size {
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.attachment-chip-remove {
+  background: transparent;
+  border: 0;
+  color: #94a3b8;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin-left: 6px;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.attachment-chip-remove:hover {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+/* Chat Message Attachment Badge */
+.message-attachment {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 9px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  font-size: 12.5px;
+  color: #cbd5e1;
+  max-width: 100%;
+}
+
+.message.user .message-attachment {
+  background: #252837;
+  border-color: #3b4055;
+}
+
+.message-attachment-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.message-attachment-name {
+  color: #e2e8f0;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.message-attachment-size {
+  color: #818cf8;
+  font-size: 11px;
+  font-weight: 500;
+}

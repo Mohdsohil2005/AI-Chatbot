@@ -1,0 +1,7 @@
+Nova AI Architecture Specification.
+
+Section 1: Security Model.
+All uploaded documents are sandboxed in isolated session directories. Cross-session access is strictly forbidden with HTTP 403 status code.
+
+Section 2: Database Storage.
+MongoDB stores document metadata and chunk references, keeping binary payloads off database records.

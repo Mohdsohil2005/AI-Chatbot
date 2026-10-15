@@ -35,6 +35,16 @@ let allSessionsCache = [];
 let searchDebounceTimer = null;
 let currentSearchQuery = "";
 
+// Attachment elements & state
+const attachButton = document.getElementById("attachButton");
+const fileInput = document.getElementById("fileInput");
+const attachmentPreview = document.getElementById("attachmentPreview");
+const attachmentChipIcon = document.getElementById("attachmentChipIcon");
+const attachmentChipName = document.getElementById("attachmentChipName");
+const attachmentChipSize = document.getElementById("attachmentChipSize");
+const removeAttachmentBtn = document.getElementById("removeAttachmentBtn");
+let selectedAttachmentFile = null;
+
 // Keep track of the displayed session usage.
 let currentTokenUsage = {
   input_tokens: 0,
@@ -129,8 +139,77 @@ function scrollToBottom() {
   chatArea.scrollTop = chatArea.scrollHeight;
 }
 
+function formatFileSize(bytes) {
+  const size = Number(bytes);
+  if (!size || size <= 0) return "0 B";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
 
-function renderMessage(role, content) {
+function clearAttachment() {
+  selectedAttachmentFile = null;
+  if (fileInput) fileInput.value = "";
+  if (attachmentPreview) attachmentPreview.hidden = true;
+}
+
+function setAttachment(file) {
+  if (!file) return;
+
+  const ext = (file.name.split(".").pop() || "").toLowerCase();
+  if (ext !== "pdf" && ext !== "txt") {
+    alert("Only PDF (.pdf) and Plain Text (.txt) files are supported.");
+    clearAttachment();
+    return;
+  }
+
+  const maxBytes = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxBytes) {
+    alert(`File exceeds 10 MB limit (${formatFileSize(file.size)}). Please choose a smaller document.`);
+    clearAttachment();
+    return;
+  }
+
+  if (file.size === 0) {
+    alert("The selected file is empty (0 bytes). Please choose a valid document.");
+    clearAttachment();
+    return;
+  }
+
+  selectedAttachmentFile = file;
+  if (attachmentChipName) attachmentChipName.textContent = file.name;
+  if (attachmentChipSize) attachmentChipSize.textContent = formatFileSize(file.size);
+  if (attachmentChipIcon) attachmentChipIcon.textContent = ext === "pdf" ? "📕" : "📄";
+  if (attachmentPreview) attachmentPreview.hidden = false;
+
+  messageInput.focus();
+}
+
+async function uploadFile(file, sessionId) {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (sessionId) {
+    formData.append("session_id", sessionId);
+  }
+
+  let response;
+  try {
+    response = await fetch(`${API_URL}/upload`, {
+      method: "POST",
+      body: formData,
+    });
+  } catch {
+    throw new Error("Cannot connect to the backend. Make sure FastAPI is running.");
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.detail || "Failed to upload document.");
+  }
+  return data;
+}
+
+function renderMessage(role, content, attachment = null) {
   welcome.hidden = true;
 
   const message = createElement(
@@ -152,78 +231,96 @@ function renderMessage(role, content) {
     role === "user" ? "You" : "Nova AI"
   );
 
+  body.append(roleLabel);
+
+  if (attachment && attachment.filename) {
+    const badge = createElement("div", "message-attachment");
+    const icon = createElement(
+      "span",
+      "message-attachment-icon",
+      (attachment.file_type || "").toLowerCase() === "pdf" ? "📕" : "📄"
+    );
+    const name = createElement("span", "message-attachment-name", attachment.filename);
+    name.title = attachment.filename;
+    const size = createElement(
+      "span",
+      "message-attachment-size",
+      formatFileSize(attachment.file_size)
+    );
+    badge.append(icon, name, size);
+    body.append(badge);
+  }
+
   const text = createElement("div", "message-text");
 
   if (role === "assistant") {
     // Convert Markdown into HTML.
-    
-const parsedHTML = marked.parse(content);
+    const parsedHTML = marked.parse(content);
+    text.innerHTML = DOMPurify.sanitize(parsedHTML);
 
-text.innerHTML = DOMPurify.sanitize(parsedHTML);
+    // Find all code blocks inside the AI response.
+    text.querySelectorAll("pre code").forEach((code) => {
+      const pre = code.parentElement;
 
-// Find all code blocks inside the AI response.
-text.querySelectorAll("pre code").forEach((code) => {
-  const pre = code.parentElement;
+      // Detect the programming language from Markdown.
+      const languageClass = [...code.classList].find((name) =>
+        name.startsWith("language-")
+      );
 
-  // Detect the programming language from Markdown.
-  const languageClass = [...code.classList].find((name) =>
-    name.startsWith("language-")
-  );
+      const language = languageClass
+        ? languageClass.replace("language-", "")
+        : "code";
 
-  const language = languageClass
-    ? languageClass.replace("language-", "")
-    : "code";
+      // Add syntax highlighting.
+      if (window.Prism) {
+        Prism.highlightElement(code);
+      }
 
-  // Add syntax highlighting.
-  if (window.Prism) {
-    Prism.highlightElement(code);
-  }
+      // Create a wrapper for the code block.
+      const wrapper = document.createElement("div");
+      wrapper.className = "code-block-wrapper";
 
-  // Create a wrapper for the code block.
-  const wrapper = document.createElement("div");
-  wrapper.className = "code-block-wrapper";
+      const toolbar = document.createElement("div");
+      toolbar.className = "code-toolbar";
 
-  const toolbar = document.createElement("div");
-  toolbar.className = "code-toolbar";
+      const label = document.createElement("span");
+      label.className = "code-language";
+      label.textContent = language.toUpperCase();
 
-  const label = document.createElement("span");
-  label.className = "code-language";
-  label.textContent = language.toUpperCase();
+      const copyButton = document.createElement("button");
+      copyButton.className = "copy-code-button";
+      copyButton.type = "button";
+      copyButton.textContent = "Copy";
 
-  const copyButton = document.createElement("button");
-  copyButton.className = "copy-code-button";
-  copyButton.type = "button";
-  copyButton.textContent = "Copy";
+      copyButton.addEventListener("click", async () => {
+        // textContent copies the actual code, not highlighted HTML.
+        const codeText = code.textContent;
 
-  copyButton.addEventListener("click", async () => {
-    // textContent copies the actual code, not highlighted HTML.
-    const codeText = code.textContent;
+        try {
+          await navigator.clipboard.writeText(codeText);
+          copyButton.textContent = "Copied!";
 
-    try {
-      await navigator.clipboard.writeText(codeText);
-      copyButton.textContent = "Copied!";
+          setTimeout(() => {
+            copyButton.textContent = "Copy";
+          }, 1500);
+        } catch {
+          copyButton.textContent = "Copy failed";
+        }
+      });
 
-      setTimeout(() => {
-        copyButton.textContent = "Copy";
-      }, 1500);
-    } catch {
-      copyButton.textContent = "Copy failed";
-    }
-  });
+      toolbar.append(label, copyButton);
 
-  toolbar.append(label, copyButton);
-
-  // Replace the original pre with our styled wrapper.
-  pre.parentNode.insertBefore(wrapper, pre);
-  wrapper.append(toolbar, pre);
-});
+      // Replace the original pre with our styled wrapper.
+      pre.parentNode.insertBefore(wrapper, pre);
+      wrapper.append(toolbar, pre);
+    });
 
   } else {
     // Keep user messages as plain text.
     text.textContent = content;
   }
 
-  body.append(roleLabel, text);
+  body.append(text);
   message.append(avatar, body);
   messages.appendChild(message);
 
@@ -231,13 +328,12 @@ text.querySelectorAll("pre code").forEach((code) => {
   return message;
 }
 
-
-function showTyping() {
+function showTyping(statusText = "Thinking...") {
   const message = createElement("div", "message assistant");
   const avatar = createElement("div", "avatar", "✦");
   const body = createElement("div", "message-content");
   const label = createElement("div", "message-role", "Nova AI");
-  const typing = createElement("div", "typing", "Thinking...");
+  const typing = createElement("div", "typing", statusText);
 
   body.append(label, typing);
   message.append(avatar, body);
@@ -504,8 +600,10 @@ async function openSession(sessionId, fromCommand = false) {
     messages.replaceChildren();
 
     session.messages.forEach((message) => {
-      renderMessage(message.role, message.content);
+      renderMessage(message.role, message.content, message.attachment);
     });
+
+    clearAttachment();
 
     welcome.hidden = session.messages.length > 0;
 
@@ -526,6 +624,7 @@ function newChat() {
 
   currentSessionId = null;
   messages.replaceChildren();
+  clearAttachment();
   welcome.hidden = false;
 
   // Reset token usage for the new conversation.
@@ -545,182 +644,207 @@ function newChat() {
 async function sendMessage(text) {
   const message = text.trim();
 
-  if (!message || isSending) return;
+  if ((!message && !selectedAttachmentFile) || isSending) return;
 
-  // 1. Detect session deletion commands before calling OpenAI.
+  // 1. Detect session commands before calling OpenAI (only when no file is attached)
+  if (message && !selectedAttachmentFile) {
+    // Detect commands to open an existing session.
+    const openMatch = message.match(
+      /\b(?:open|show|get|load)\s+session\s+id\s+(.+)/i
+    );
 
-  
-  // Detect commands to open an existing session.
-  const openMatch = message.match(
-    /\b(?:open|show|get|load)\s+session\s+id\s+(.+)/i
-  );
+    if (openMatch) {
+      const sessionId = openMatch[1]
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .replace(/[.,!?]+$/, "");
 
-  
-  if (openMatch) {
-    const sessionId = openMatch[1]
-      .trim()
-      .replace(/^["']|["']$/g, "")
-      .replace(/[.,!?]+$/, "");
+      console.log("OPEN SESSION COMMAND DETECTED:", message);
+      console.log("SESSION ID:", sessionId);
 
-    console.log("OPEN SESSION COMMAND DETECTED:", message);
-    console.log("SESSION ID:", sessionId);
+      const uuidPattern =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    const uuidPattern =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-    if (!uuidPattern.test(sessionId)) {
-      alert(
-        "Invalid session ID. Copy the complete session_id from MongoDB Compass."
-      );
-      return;
-    }
-
-    isSending = true;
-    sendButton.disabled = true;
-    messageInput.disabled = true;
-
-    try {
-      await openSession(sessionId, true);
-    } catch (error) {
-      alert(`Could not open session: ${error.message}`);
-    } finally {
-      isSending = false;
-      sendButton.disabled = false;
-      messageInput.disabled = false;
-      messageInput.focus();
-    }
-
-    return;
-  }
-
-
-  const deleteCommand = message.match(
-    /\bdelete\s+session\s+id\s+(.+)/i
-  );
-
-  if (deleteCommand) {
-    const sessionId = deleteCommand[1]
-      .trim()
-      .replace(/^["']|["']$/g, "")
-      .replace(/[.,!?]+$/, "");
-
-    // 2. Validate the session ID format.
-    const uuidPattern =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-    if (!uuidPattern.test(sessionId)) {
-      alert(
-        "Invalid session ID. Copy the complete session_id from MongoDB Compass."
-      );
-      return;
-    }
-
-    // 3. Prevent another send while deletion is running.
-    isSending = true;
-    sendButton.disabled = true;
-    messageInput.disabled = true;
-
-    try {
-      // 4. Get session details to verify that it exists.
-      const session = await apiRequest(
-        `/sessions/${encodeURIComponent(sessionId)}`
-      );
-
-      const sessionTitle = session.title || sessionId;
-
-      // 5. Ask for confirmation before permanent deletion.
-      const confirmed = window.confirm(
-        `Permanently delete "${sessionTitle}"?\n\n` +
-        `Session ID: ${sessionId}\n\n` +
-        "This will remove the session and its messages from MongoDB."
-      );
-
-      if (!confirmed) return;
-
-      // 6. Delete the session through the backend API.
-      await apiRequest(
-        `/sessions/${encodeURIComponent(sessionId)}`,
-        { method: "DELETE" }
-      );
-
-      // 7. Clear the current conversation if it was deleted.
-      
-      if (currentSessionId === sessionId) {
-        currentSessionId = null;
-        messages.replaceChildren();
-        welcome.hidden = false;
-
-        // Clear the deleted session's token usage.
-        renderTokenUsage();
-        tokenPopover.hidden = true;
+      if (!uuidPattern.test(sessionId)) {
+        alert(
+          "Invalid session ID. Copy the complete session_id from MongoDB Compass."
+        );
+        return;
       }
 
+      isSending = true;
+      sendButton.disabled = true;
+      messageInput.disabled = true;
+      if (attachButton) attachButton.disabled = true;
 
-      // 8. Refresh the sidebar.
-      await loadSessions();
+      try {
+        await openSession(sessionId, true);
+      } catch (error) {
+        alert(`Could not open session: ${error.message}`);
+      } finally {
+        isSending = false;
+        sendButton.disabled = false;
+        messageInput.disabled = false;
+        if (attachButton) attachButton.disabled = false;
+        messageInput.focus();
+      }
 
-      alert("Session and its messages deleted successfully.");
-    } catch (error) {
-      alert(`Could not delete session: ${error.message}`);
-    } finally {
-      isSending = false;
-      sendButton.disabled = false;
-      messageInput.disabled = false;
-      messageInput.focus();
+      return;
     }
 
-    // Never send a delete command to OpenAI as a normal question.
-    return;
+    const deleteCommand = message.match(
+      /\bdelete\s+session\s+id\s+(.+)/i
+    );
+
+    if (deleteCommand) {
+      const sessionId = deleteCommand[1]
+        .trim()
+        .replace(/^["']|["']$/g, "")
+        .replace(/[.,!?]+$/, "");
+
+      // Validate the session ID format.
+      const uuidPattern =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+      if (!uuidPattern.test(sessionId)) {
+        alert(
+          "Invalid session ID. Copy the complete session_id from MongoDB Compass."
+        );
+        return;
+      }
+
+      // Prevent another send while deletion is running.
+      isSending = true;
+      sendButton.disabled = true;
+      messageInput.disabled = true;
+      if (attachButton) attachButton.disabled = true;
+
+      try {
+        // Get session details to verify that it exists.
+        const session = await apiRequest(
+          `/sessions/${encodeURIComponent(sessionId)}`
+        );
+
+        const sessionTitle = session.title || sessionId;
+
+        // Ask for confirmation before permanent deletion.
+        const confirmed = window.confirm(
+          `Permanently delete "${sessionTitle}"?\n\n` +
+          `Session ID: ${sessionId}\n\n` +
+          "This will remove the session and its messages from MongoDB."
+        );
+
+        if (!confirmed) return;
+
+        // Delete the session through the backend API.
+        await apiRequest(
+          `/sessions/${encodeURIComponent(sessionId)}`,
+          { method: "DELETE" }
+        );
+
+        // Clear the current conversation if it was deleted.
+        if (currentSessionId === sessionId) {
+          currentSessionId = null;
+          messages.replaceChildren();
+          clearAttachment();
+          welcome.hidden = false;
+
+          // Clear the deleted session's token usage.
+          renderTokenUsage();
+          tokenPopover.hidden = true;
+        }
+
+        // Refresh the sidebar.
+        await loadSessions();
+
+        alert("Session and its messages deleted successfully.");
+      } catch (error) {
+        alert(`Could not delete session: ${error.message}`);
+      } finally {
+        isSending = false;
+        sendButton.disabled = false;
+        messageInput.disabled = false;
+        if (attachButton) attachButton.disabled = false;
+        messageInput.focus();
+      }
+
+      return;
+    }
   }
 
-  // 9. Normal AI chat flow.
+  // 2. Normal AI chat flow (supports optional document attachment).
   isSending = true;
   sendButton.disabled = true;
   messageInput.disabled = true;
+  if (attachButton) attachButton.disabled = true;
 
-  renderMessage("user", message);
+  const fileToSend = selectedAttachmentFile;
+  clearAttachment();
+
+  const promptText = message || (fileToSend ? `Please summarize and explain the contents of ${fileToSend.name}.` : "");
+
+  let tempAttachment = null;
+  if (fileToSend) {
+    tempAttachment = {
+      filename: fileToSend.name,
+      file_type: (fileToSend.name.split(".").pop() || "").toLowerCase(),
+      file_size: fileToSend.size,
+    };
+  }
+
+  renderMessage("user", promptText, tempAttachment);
   messageInput.value = "";
   messageInput.style.height = "auto";
 
-  const typing = showTyping();
+  let typing = showTyping(fileToSend ? "Processing document & thinking..." : "Thinking...");
 
   try {
+    let uploadedFileId = null;
+
+    if (fileToSend) {
+      const uploadResult = await uploadFile(fileToSend, currentSessionId);
+      uploadedFileId = uploadResult.file_id;
+      if (!currentSessionId && uploadResult.session_id) {
+        currentSessionId = uploadResult.session_id;
+      }
+    }
+
     const result = await apiRequest("/chat", {
       method: "POST",
       body: JSON.stringify({
-        message,
+        message: promptText,
         session_id: currentSessionId,
+        file_id: uploadedFileId,
       }),
     });
 
-    
-  currentSessionId = result.session_id;
+    currentSessionId = result.session_id;
 
-  typing.remove();
+    if (typing) typing.remove();
 
-  renderMessage("assistant", result.reply);
+    renderMessage("assistant", result.reply);
 
-  // Optimistically reflect database reads from chat response
-  if (result.database_reads !== undefined) {
-    if (totalDbReadsElement) {
-      totalDbReadsElement.textContent = Number(result.database_reads).toLocaleString();
+    // Optimistically reflect database reads from chat response
+    if (result.database_reads !== undefined) {
+      if (totalDbReadsElement) {
+        totalDbReadsElement.textContent = Number(result.database_reads).toLocaleString();
+      }
+      if (databaseReadsElement) {
+        databaseReadsElement.textContent = Number(result.database_reads).toLocaleString();
+      }
     }
-    if (databaseReadsElement) {
-      databaseReadsElement.textContent = Number(result.database_reads).toLocaleString();
+
+    // Refresh cumulative token and database reads usage from MongoDB.
+    try {
+      await loadTokenUsage(result.session_id);
+    } catch (usageError) {
+      console.error("Could not load token usage:", usageError);
     }
-  }
 
-  // Refresh cumulative token and database reads usage from MongoDB.
-  try {
-    await loadTokenUsage(result.session_id);
-  } catch (usageError) {
-    console.error("Could not load token usage:", usageError);
-  }
-
-  await loadSessions();
+    await loadSessions();
 
   } catch (error) {
-    typing.remove();
+    if (typing) typing.remove();
 
     renderMessage(
       "assistant",
@@ -730,6 +854,7 @@ async function sendMessage(text) {
     isSending = false;
     sendButton.disabled = false;
     messageInput.disabled = false;
+    if (attachButton) attachButton.disabled = false;
     messageInput.focus();
   }
 }
@@ -789,6 +914,27 @@ if (historySearchInput) {
 
 if (clearSearchButton) {
   clearSearchButton.addEventListener("click", clearSearch);
+}
+
+// File Attachment Event Listeners
+if (attachButton && fileInput) {
+  attachButton.addEventListener("click", () => {
+    if (isSending) return;
+    fileInput.click();
+  });
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files && fileInput.files[0]) {
+      setAttachment(fileInput.files[0]);
+    }
+  });
+}
+
+if (removeAttachmentBtn) {
+  removeAttachmentBtn.addEventListener("click", () => {
+    clearAttachment();
+    messageInput.focus();
+  });
 }
 
 loadSessions();

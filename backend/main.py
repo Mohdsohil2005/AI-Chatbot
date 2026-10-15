@@ -125,10 +125,12 @@ def record_db_read(session_id: str | None = None, count: int = 1):
 # ============================================================================
 
 TECH_TERMS_MAP = {
-    # Languages & Runtimes
+    # Programming Languages & Runtimes
     "python": "Python",
     "javascript": "JavaScript",
+    "js": "JavaScript",
     "typescript": "TypeScript",
+    "ts": "TypeScript",
     "html": "HTML",
     "html5": "HTML5",
     "css": "CSS",
@@ -138,13 +140,26 @@ TECH_TERMS_MAP = {
     "java": "Java",
     "rust": "Rust",
     "golang": "Go",
+    "go": "Go",
     "cpp": "C++",
+    "c++": "C++",
     "c#": "C#",
+    "csharp": "C#",
     "php": "PHP",
     "ruby": "Ruby",
+    "kotlin": "Kotlin",
+    "swift": "Swift",
+    "dart": "Dart",
+    "bash": "Bash",
+    "shell": "Shell",
+    "powershell": "PowerShell",
     # Frameworks & Libraries
     "react": "React",
+    "reactjs": "React",
+    "react.js": "React",
     "vue": "Vue",
+    "vuejs": "Vue",
+    "vue.js": "Vue",
     "angular": "Angular",
     "nextjs": "Next.js",
     "next.js": "Next.js",
@@ -157,10 +172,16 @@ TECH_TERMS_MAP = {
     "fastapi": "FastAPI",
     "flask": "Flask",
     "django": "Django",
+    "spring": "Spring",
+    "springboot": "Spring Boot",
     "tailwind": "Tailwind",
     "tailwindcss": "Tailwind CSS",
     "bootstrap": "Bootstrap",
     "redux": "Redux",
+    "sass": "Sass",
+    "scss": "SCSS",
+    "jquery": "jQuery",
+    "svelte": "Svelte",
     # React Hooks & Concepts
     "useeffect": "useEffect",
     "usestate": "useState",
@@ -169,6 +190,8 @@ TECH_TERMS_MAP = {
     "usecallback": "useCallback",
     "useref": "useRef",
     "usereducer": "useReducer",
+    "jsx": "JSX",
+    "tsx": "TSX",
     # Databases & Caches
     "mongodb": "MongoDB",
     "mongo": "MongoDB",
@@ -177,6 +200,12 @@ TECH_TERMS_MAP = {
     "mysql": "MySQL",
     "sqlite": "SQLite",
     "redis": "Redis",
+    "cassandra": "Cassandra",
+    "dynamodb": "DynamoDB",
+    "mariadb": "MariaDB",
+    "prisma": "Prisma",
+    "mongoose": "Mongoose",
+    "sqlalchemy": "SQLAlchemy",
     # DevOps, Infra & Cloud
     "docker": "Docker",
     "kubernetes": "Kubernetes",
@@ -188,7 +217,10 @@ TECH_TERMS_MAP = {
     "github": "GitHub",
     "gitlab": "GitLab",
     "linux": "Linux",
+    "ubuntu": "Ubuntu",
     "nginx": "Nginx",
+    "apache": "Apache",
+    "terraform": "Terraform",
     # Protocols, Auth, & Standards
     "api": "API",
     "apis": "APIs",
@@ -211,6 +243,12 @@ TECH_TERMS_MAP = {
     "dom": "DOM",
     "sdk": "SDK",
     "sdks": "SDKs",
+    "ssh": "SSH",
+    "ssl": "SSL",
+    "tls": "TLS",
+    "websocket": "WebSocket",
+    "websockets": "WebSockets",
+    "grpc": "gRPC",
     # AI / ML
     "ai": "AI",
     "ml": "ML",
@@ -231,11 +269,13 @@ TECH_TERMS_MAP = {
 }
 
 GREETING_PATTERN = re.compile(
-    r"^(?:hi+|hello+|hey+|heyy+|hola|namaste|namaskar|greetings|sup|yo|"
+    r"^(?:hi+|hello+|hey+|heyy+|heya|hola|namaste|namaskar|pranam|salaam|salam|ram\s+ram|greetings|sup|yo|"
     r"good\s+(?:morning|afternoon|evening|day|night)|"
-    r"test|testing|ping|pong|ok|okay|k|cool|thanks|thank\s+you|thx|"
-    r"bye|goodbye|start|help|nova|ai|bot)"
-    r"(?:\s+(?:there|bot|ai|nova|sir|bro|bhai|friend|all|team))?[.!?\s]*$",
+    r"test|testing|ping|pong|ok|okay|k|cool|nice|great|thanks|thank\s+you|thx|shukriya|dhanyawad|"
+    r"bye|goodbye|start|help|nova|ai|bot|"
+    r"how\s+are\s+you|k(?:a|e)se\s+ho(?:\s+aap)?|what(?:'s|\s+is)\s+up|"
+    r"can\s+you\s+help\s+me|help\s+me|i\s+need\s+help|ek\s+help\s+chahiye)"
+    r"(?:\s+(?:there|bot|ai|nova|sir|bro|bhai|bhaiya|friend|yaar|dost|all|team))?[.!?\s]*$",
     re.IGNORECASE,
 )
 
@@ -246,10 +286,54 @@ MINOR_WORDS = {
 }
 
 
+def clean_leading_fillers(text: str) -> str:
+    """
+    Remove leading greetings, addressees, and conversational filler words
+    (e.g., 'Hello Mujhe', 'Bhai', 'Hiii bro', 'Please', 'Can you tell me')
+    while preserving the core topic and request.
+    """
+    cleaned = text.strip()
+
+    prefix_patterns = [
+        # Greetings + optional addressee
+        r"^(?:hi+|hello+|hey+|heyy+|heya|hola|namaste|namaskar|pranam|salaam|salam|yo|sup|greetings|good\s+(?:morning|afternoon|evening))\b[,\s]*",
+        # Standalone addressees
+        r"^(?:bro|bhai|bhaiya|dude|sir|nova|ai|bot|friend|yaar|dost)\b[,\s]*",
+        # Hindi pronoun/filler prefixes
+        r"^(?:mujhe|humko|hume|mere\s+ko|mera|meri|mere|kripya|please|pls)\b[,\s]*",
+        # English polite openers
+        r"^(?:can\s+you\s+(?:please\s+)?(?:tell\s+me|show\s+me|help\s+me\s+with|explain(?:\s+to\s+me)?|give\s+me)?)\s+",
+        r"^(?:could\s+you\s+(?:please\s+)?(?:tell\s+me|show\s+me|help\s+me|explain)?)\s*",
+        r"^(?:please\s+(?:tell\s+me|explain|show\s+me|help\s+me\s+with|provide|give\s+me)?)\s*",
+        r"^(?:i\s+want\s+to\s+(?:know|learn|understand|build|create|implement))\s+(?:about\s+)?",
+        r"^(?:i\s+need\s+help\s+(?:with|to))\s+",
+        r"^(?:tell\s+me\s+(?:about|how\s+to)?)\s*",
+        r"^(?:give\s+me\s+(?:an?\s+)?(?:example\s+of|overview\s+of|tutorial\s+on)?)\s*",
+        # Hindi inquiry openers
+        r"^(?:kya\s+aap\s+(?:mujhe\s+)?(?:bata\s+sakte\s+ho|samjha\s+sakte\s+ho))\s*",
+        r"^(?:kya\s+tum\s+(?:mujhe\s+)?(?:bata\s+sakte\s+ho|samjha\s+sakte\s+ho))\s*",
+        r"^(?:ek\s+baat\s+batao|ye\s+batao)\s*",
+    ]
+
+    changed = True
+    iterations = 0
+    while changed and iterations < 5:
+        changed = False
+        iterations += 1
+        for pat in prefix_patterns:
+            new_text = re.sub(pat, "", cleaned, count=1, flags=re.IGNORECASE).strip()
+            if new_text and new_text != cleaned and any(c.isalnum() for c in new_text):
+                cleaned = new_text
+                changed = True
+
+    return cleaned
+
+
 def format_title_casing(text: str) -> str:
     """
     Format words into title case while preserving technical terms, acronyms,
-    and camelCase words, keeping minor connector words lowercase unless first/last.
+    camelCase identifiers, and hyphenated terms, keeping minor connector words
+    lowercase unless first or last.
     """
     tokens = text.split()
     if not tokens:
@@ -259,54 +343,152 @@ def format_title_casing(text: str) -> str:
     total = len(tokens)
 
     for i, token in enumerate(tokens):
-        clean_core = re.sub(r"^[^a-zA-Z0-9]+|[^a-zA-Z0-9]+$", "", token)
-        lower_core = clean_core.lower()
+        # Extract leading and trailing punctuation while keeping +, #, ., -, etc.
+        m = re.match(r"^([^a-zA-Z0-9+#.-]*)(.*?)([^a-zA-Z0-9+#.-]*)$", token)
+        if m:
+            prefix, core, suffix = m.group(1), m.group(2), m.group(3)
+        else:
+            prefix, core, suffix = "", token, ""
+
+        if not core:
+            formatted.append(token)
+            continue
+
+        lower_core = core.lower()
 
         if lower_core in TECH_TERMS_MAP:
             matched_term = TECH_TERMS_MAP[lower_core]
-            prefix = token[: len(token) - len(clean_core) if clean_core else 0]
-            suffix = token[len(prefix) + len(clean_core):] if clean_core else ""
             formatted.append(f"{prefix}{matched_term}{suffix}")
         elif i > 0 and i < total - 1 and lower_core in MINOR_WORDS:
-            formatted.append(token.lower())
+            formatted.append(f"{prefix}{lower_core}{suffix}")
+        elif "-" in core:
+            subparts = [
+                TECH_TERMS_MAP.get(p.lower(), p.capitalize())
+                for p in core.split("-")
+            ]
+            formatted.append(f"{prefix}{'-'.join(subparts)}{suffix}")
+        elif core.isupper() and len(core) <= 5:
+            formatted.append(f"{prefix}{core}{suffix}")
+        elif any(c.isupper() for c in core[1:]):
+            formatted.append(f"{prefix}{core}{suffix}")
         else:
-            if token.isupper() and len(token) <= 4:
-                formatted.append(token)
-            elif any(c.isupper() for c in token[1:]):
-                formatted.append(token)
-            else:
-                formatted.append(token.capitalize())
+            formatted.append(f"{prefix}{core.capitalize()}{suffix}")
 
     return " ".join(formatted)
 
 
-def enforce_title_limits(title: str, max_words: int = 7, max_chars: int = 60) -> str:
+def enforce_title_limits(title: str, max_words: int = 6, max_chars: int = 60) -> str:
     """
-    Ensure the title stays within 3-7 words, ideally 25-50 chars, max 60 chars.
-    Never cuts words mid-word or ends with dangling punctuation.
+    Ensure the title stays concise (3-6 words, ideally 20-40 chars, max 60 chars).
+    Never cuts mid-word, avoids unnecessary ellipses, removes duplicate consecutive words,
+    and strips trailing connectors or dangling punctuation.
     """
     clean = " ".join(title.split()).strip(" \t\n.,!?:;-")
     if not clean:
         return "New Chat"
 
-    words = clean.split()
+    # Remove consecutive duplicate words
+    words = []
+    for w in clean.split():
+        if not words or w.lower() != words[-1].lower():
+            words.append(w)
+
+    if not words:
+        return "New Chat"
+
+    # Restrict to max_words
     if len(words) > max_words:
-        clean = " ".join(words[:max_words])
+        words = words[:max_words]
 
-    if len(clean) > max_chars:
-        trimmed = clean[:max_chars - 3].rsplit(" ", 1)[0].rstrip(" ,.-:;!?")
-        clean = trimmed
+    # Remove trailing minor connector words if trimmed
+    dangling_connectors = {
+        "in", "to", "for", "and", "or", "of", "with", "on", "at", "by", "from",
+        "me", "se", "ka", "ki", "ke", "ko", "par", "the", "a", "an"
+    }
+    while len(words) > 1 and words[-1].lower() in dangling_connectors:
+        words.pop()
 
-    return clean or "New Chat"
+    candidate = " ".join(words).strip(" \t\n.,!?:;-")
+
+    # Enforce max_chars without cutting words in half or adding ellipses
+    if len(candidate) > max_chars:
+        trimmed = candidate[:max_chars].rsplit(" ", 1)[0].rstrip(" ,.-:;!?")
+        if trimmed:
+            candidate_words = trimmed.split()
+            while len(candidate_words) > 1 and candidate_words[-1].lower() in dangling_connectors:
+                candidate_words.pop()
+            candidate = " ".join(candidate_words).strip(" \t\n.,!?:;-")
+
+    return candidate or "New Chat"
+
+
+def _format_error_fixing_title(target: str) -> str:
+    """
+    Format error fix queries into concise titles like 'Fixing API 500 Error',
+    'Fixing FastAPI CORS Error', 'Fixing 404 Error'.
+    """
+    clean_target = " ".join(target.split()).strip(" \t\n.,!?:;-")
+    clean_target = re.sub(r"\b(?:me|in)\b", " ", clean_target, flags=re.IGNORECASE)
+    clean_target = " ".join(clean_target.split())
+
+    # Check for HTTP status code or numeric error code
+    m_code = re.search(r"\b(\d{3})\b", clean_target)
+    if m_code:
+        code = m_code.group(1)
+        words = clean_target.split()
+        tech_words = []
+        for w in words:
+            w_lower = w.lower()
+            if w_lower in ("error", "fix", "karna", "hai", "issue", "bug", code):
+                continue
+            if w_lower in TECH_TERMS_MAP:
+                tech_words.append(TECH_TERMS_MAP[w_lower])
+            elif any(c.isalnum() for c in w):
+                tech_words.append(format_title_casing(w))
+
+        if tech_words:
+            tech_str = " ".join(tech_words[:2])
+            return enforce_title_limits(f"Fixing {tech_str} {code} Error")
+        return enforce_title_limits(f"Fixing {code} Error")
+
+    # Check for named error types
+    m_err_type = re.search(
+        r"\b(cors|typeerror|referenceerror|syntaxerror|hydration|connection|timeout|auth|permission)\b",
+        clean_target,
+        re.IGNORECASE,
+    )
+    if m_err_type:
+        raw_err = m_err_type.group(1)
+        err_name = format_title_casing(raw_err)
+        words = clean_target.split()
+        tech_words = [
+            TECH_TERMS_MAP[w.lower()]
+            for w in words
+            if w.lower() in TECH_TERMS_MAP and w.lower() != raw_err.lower()
+        ]
+        if tech_words:
+            return enforce_title_limits(f"Fixing {tech_words[0]} {err_name} Error")
+        if "error" not in err_name.lower():
+            err_name = f"{err_name} Error"
+        return enforce_title_limits(f"Fixing {err_name}")
+
+    formatted = format_title_casing(clean_target)
+    if not formatted.lower().startswith("fixing"):
+        if "error" not in formatted.lower() and "issue" not in formatted.lower() and "bug" not in formatted.lower():
+            return enforce_title_limits(f"Fixing {formatted} Error")
+        return enforce_title_limits(f"Fixing {formatted}")
+    return enforce_title_limits(formatted)
 
 
 def generate_chat_title(message: str) -> str:
     """
     Deterministically generates a concise, topic-focused title from the first message.
     - Preserves English, Hindi, Hinglish, technical terms, and acronyms.
-    - Avoids extra AI calls or token consumption.
-    - Yields 3-7 words, ~25-50 characters (max 60).
+    - Removes greetings and filler words when they add no meaning.
+    - Yields 3-6 words, ~20-40 characters (strictly max 60).
+    - Never truncates words in the middle, never appends unnecessary ellipses.
     - Falls back to 'New Chat' for greetings or uninformative inputs.
+    - Zero additional OpenAI calls or external dependencies.
     """
     if not message:
         return "New Chat"
@@ -322,6 +504,11 @@ def generate_chat_title(message: str) -> str:
             clean_outside,
             re.IGNORECASE,
         ):
+            lang_match = re.search(r"```([a-zA-Z0-9+#]+)", raw)
+            if lang_match:
+                lang = lang_match.group(1).lower()
+                tech = TECH_TERMS_MAP.get(lang, lang.capitalize())
+                return f"{tech} Code Explanation"
             return "Code Explanation"
         raw = clean_outside
 
@@ -350,106 +537,155 @@ def generate_chat_title(message: str) -> str:
     if not any(c.isalnum() for c in clean_message):
         return "New Chat"
 
+    # Strip conversational greetings and leading fillers (e.g., 'Hello Mujhe', 'Bhai')
+    cleaned = clean_leading_fillers(clean_message)
+
+    # If removing greetings/fillers left nothing meaningful
+    if not cleaned or len(cleaned) < 2 or GREETING_PATTERN.match(cleaned):
+        return "New Chat"
+
     # 4. Explicit code explanation questions
     if re.search(
         r"^(?:can\s+you\s+(?:please\s+)?)?(?:please\s+)?explain\s+(?:this|the|my)?\s*code\b",
-        clean_message,
+        cleaned,
         re.IGNORECASE,
     ):
         return "Code Explanation"
     if re.search(
         r"^(?:what\s+does\s+(?:this|the|my)?\s*code\s+do|code\s+(?:ko\s+)?(?:explain|samjhao|batao))\b",
-        clean_message,
+        cleaned,
         re.IGNORECASE,
     ):
         return "Code Explanation"
 
-    # 5. Debugging & Error handling (e.g. "Why is my API returning 500?")
-    m_err = re.search(
-        r"^(?:why\s+is\s+(?:my|the)?\s*|why\s+does\s+(?:my|the)?\s*)"
-        r"([a-zA-Z0-9_\-\s]+?)\s*"
-        r"(?:returning|throwing|giving|responding\s+with|showing)\s+"
-        r"(\d{3}|error[s]?|[a-zA-Z]+error)\??$",
-        clean_message,
+    # 5. Hindi / Hinglish Explanation Request:
+    # e.g., "Hello Mujhe JavaScript ke Ware me Batao" -> "JavaScript Explained in Hindi"
+    # e.g., "React ke bare me batao" -> "React Explained in Hindi"
+    # e.g., "Explain Python in Hindi" -> "Python Explained in Hindi"
+    m_hindi_exp = re.search(
+        r"^(.+?)\s+ke\s+(?:bare|baare|ware)\s+me[in]?"
+        r"(?:\s+(?:batao|samjhao|bataiye|samjhaiye|likho|bata\s+do|jan\s*na\s+hai|seekhna\s+hai|padhna\s+hai|kuch\s+batao|info|information))?[.!?\s]*$",
+        cleaned,
         re.IGNORECASE,
     )
-    if m_err:
-        target = format_title_casing(m_err.group(1).strip())
-        raw_code = m_err.group(2).strip()
+    if m_hindi_exp:
+        topic = m_hindi_exp.group(1).strip()
+        clean_top = re.sub(r"^(?:mujhe\s+|bhai\s+)+", "", topic, flags=re.IGNORECASE).strip()
+        formatted_topic = format_title_casing(clean_top)
+        return enforce_title_limits(f"{formatted_topic} Explained in Hindi")
+
+    m_in_hindi = re.search(
+        r"^(?:(?:can\s+you\s+)?(?:explain|tell\s+me\s+about)\s+)?"
+        r"(.+?)\s+(?:in\s+hindi|hindi\s+me[in]?)"
+        r"(?:\s+(?:batao|samjhao|explain\s+karo|samjhaiye|bataiye))?[.!?\s]*$",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m_in_hindi:
+        topic = m_in_hindi.group(1).strip()
+        formatted_topic = format_title_casing(topic)
+        return enforce_title_limits(f"{formatted_topic} Explained in Hindi")
+
+    # 6. Fixing & Debugging Errors (English & Hinglish)
+    # e.g., "Mujhe API error 500 fix karna hai" -> "Fixing API 500 Error"
+    # e.g., "How to fix CORS error in FastAPI" -> "Fixing FastAPI CORS Error"
+    # e.g., "Fix 404 not found error" -> "Fixing 404 Not Found Error"
+    m_err_fix = re.search(
+        r"^(?:(?:how\s+to\s+fix|how\s+can\s+i\s+fix|fixing|fix|debug|solve|resolve)\s+)?"
+        r"(.+?)\s+"
+        r"(?:(?:ko\s+)?(?:fix|solve|debug)\s+(?:karna\s+hai|kaise\s+kare[n]?|karna\s+chahta\s+hu[n]?)|"
+        r"fix\s+kaise\s+kare[n]?|kaise\s+fix\s+kare[n]?|"
+        r"(?:error|issue|bug)\s+(?:aa\s+raha\s+hai|de\s+raha\s+hai|show\s+ho\s+raha\s+hai))[.!?\s]*$",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m_err_fix:
+        target = m_err_fix.group(1).strip()
+        return _format_error_fixing_title(target)
+
+    m_eng_fix = re.search(
+        r"^(?:how\s+to\s+fix|how\s+can\s+i\s+fix|fixing|fix|solve|resolve|debug)\s+(.+?)[.!?\s]*$",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m_eng_fix:
+        target = m_eng_fix.group(1).strip()
+        return _format_error_fixing_title(target)
+
+    # "Why is my API returning 500?"
+    m_err_return = re.search(
+        r"^(?:why\s+is\s+(?:my|the)?\s*|why\s+does\s+(?:my|the)?\s*)"
+        r"([a-zA-Z0-9_\-+#.\s]+?)\s*"
+        r"(?:returning|throwing|giving|responding\s+with|showing)\s+"
+        r"(\d{3}|error[s]?|[a-zA-Z]+error)\??$",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m_err_return:
+        tech = format_title_casing(m_err_return.group(1).strip())
+        raw_code = m_err_return.group(2).strip()
         code_str = raw_code.upper() if raw_code.isdigit() else format_title_casing(raw_code)
         if "error" not in code_str.lower():
             code_str = f"{code_str} Error"
-        return enforce_title_limits(f"Debugging {target} {code_str}")
+        return enforce_title_limits(f"Fixing {tech} {code_str}")
 
-    m_fix = re.search(
-        r"^(?:how\s+to\s+fix|how\s+can\s+i\s+fix|fixing|fix|debug|debugging)\s+"
-        r"([a-zA-Z0-9_\-\s]+?)\s+(?:error|issue|bug|exception)\??$",
-        clean_message,
+    # 7. Hinglish Mechanism:
+    # e.g., "Bhai Python me variables kaise kaam karte hain" -> "Python Variables Explained"
+    # e.g., "React me useEffect kaise kaam karta hai" -> "React useEffect Explained"
+    m_hinglish_tech_mechanism = re.search(
+        r"^([a-zA-Z0-9_\-+#.]+)\s+me\s+([a-zA-Z0-9_\-+#.\s]+?)\s+"
+        r"kaise\s+(?:kaam\s+karta\s+hai|kaam\s+karte\s+hai[n]?|work\s+karta\s+hai|work\s+karte\s+hai[n]?|chalta\s+hai|operate\s+karta\s+hai)[.!?\s]*$",
+        cleaned,
         re.IGNORECASE,
     )
-    if m_fix:
-        target = format_title_casing(m_fix.group(1).strip())
-        return enforce_title_limits(f"Debugging {target} Error")
+    if m_hinglish_tech_mechanism:
+        t1 = format_title_casing(m_hinglish_tech_mechanism.group(1).strip())
+        t2 = format_title_casing(m_hinglish_tech_mechanism.group(2).strip())
+        return enforce_title_limits(f"{t1} {t2} Explained")
 
-    m_hinglish_err = re.search(
-        r"^([a-zA-Z0-9_\-\s]+?)\s+(?:me\s+)?(?:error|issue|bug)\s+(?:aa\s+raha\s+hai|kaise\s+fix\s+kare)\??$",
-        clean_message,
+    m_hinglish_single_mechanism = re.search(
+        r"^([a-zA-Z0-9_\-+#.\s]+?)\s+"
+        r"(?:kaise\s+(?:kaam\s+karta\s+hai|kaam\s+karte\s+hai[n]?|work\s+karta\s+hai|work\s+karte\s+hai[n]?|chalta\s+hai)|kya\s+hota\s+hai|kya\s+hai)[.!?\s]*$",
+        cleaned,
         re.IGNORECASE,
     )
-    if m_hinglish_err:
-        target = format_title_casing(m_hinglish_err.group(1).strip())
-        return enforce_title_limits(f"Debugging {target} Error")
+    if m_hinglish_single_mechanism:
+        topic = format_title_casing(m_hinglish_single_mechanism.group(1).strip())
+        return enforce_title_limits(f"{topic} Explained")
 
-    # 6. "Explain X in simple words" -> "X Explained Simply"
-    m_simple = re.search(
-        r"^(?:can\s+you\s+(?:please\s+)?)?(?:please\s+)?explain\s+"
-        r"([a-zA-Z0-9_\-\s]+?)\s+"
-        r"(?:in\s+simple\s+words|in\s+simple\s+terms|in\s+easy\s+words|in\s+easy\s+language|simply)\??$",
-        clean_message,
-        re.IGNORECASE,
-    )
-    if m_simple:
-        topic = format_title_casing(m_simple.group(1).strip())
-        return enforce_title_limits(f"{topic} Explained Simply")
-
-    # 7. "How does X work?" -> "Understanding X"
+    # 8. "How does X work?" -> "X Explained"
     m_how_work = re.search(
-        r"^(?:how\s+does|how\s+do)\s+([a-zA-Z0-9_\-\s]+?)\s+work(?:ing)?\??$",
-        clean_message,
+        r"^(?:how\s+does|how\s+do)\s+([a-zA-Z0-9_\-+#.\s]+?)\s+work(?:ing)?\??$",
+        cleaned,
         re.IGNORECASE,
     )
     if m_how_work:
         topic = format_title_casing(m_how_work.group(1).strip())
-        return enforce_title_limits(f"Understanding {topic}")
-
-    # 8. Hinglish: "React me useEffect kaise kaam karta hai" -> "React useEffect Explained"
-    m_hinglish_tech = re.search(
-        r"^([a-zA-Z0-9_\-]+)\s+me\s+([a-zA-Z0-9_\-\s]+?)\s+"
-        r"kaise\s+(?:kaam\s+karta\s+hai|work\s+karta\s+hai|chalta\s+hai)\??$",
-        clean_message,
-        re.IGNORECASE,
-    )
-    if m_hinglish_tech:
-        t1 = format_title_casing(m_hinglish_tech.group(1).strip())
-        t2 = format_title_casing(m_hinglish_tech.group(2).strip())
-        return enforce_title_limits(f"{t1} {t2} Explained")
-
-    m_hinglish_single = re.search(
-        r"^([a-zA-Z0-9_\-\s]+?)\s+"
-        r"(?:kaise\s+(?:kaam\s+karta\s+hai|work\s+karta\s+hai)|kya\s+hota\s+hai|kya\s+hai)\??$",
-        clean_message,
-        re.IGNORECASE,
-    )
-    if m_hinglish_single:
-        topic = format_title_casing(m_hinglish_single.group(1).strip())
         return enforce_title_limits(f"{topic} Explained")
 
-    # 9. Hinglish: "JWT refresh token implement kaise kare" -> "JWT Refresh Token Implementation"
+    # 9. "Explain X in simple words" -> "X Explained"
+    # e.g., "Explain MongoDB indexing in simple words" -> "MongoDB Indexing Explained"
+    m_simple = re.search(
+        r"^(?:can\s+you\s+(?:please\s+)?)?(?:please\s+)?explain\s+"
+        r"([a-zA-Z0-9_\-+#.\s]+?)"
+        r"(?:\s+(?:in\s+simple\s+(?:words|terms|language)|in\s+easy\s+(?:words|terms|language)|simply|for\s+beginners|in\s+detail|with\s+examples?))?[.!?\s]*$",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m_simple:
+        raw_topic = m_simple.group(1).strip()
+        if raw_topic.lower() not in ("this", "it", "code", "this code", "everything"):
+            topic = format_title_casing(raw_topic)
+            return enforce_title_limits(f"{topic} Explained")
+
+    # 10. Implementation / Building / Creating (Hinglish & English)
+    # e.g., "Mujhe JWT refresh token implement karna hai" -> "JWT Refresh Token Implementation"
+    # e.g., "How to implement JWT refresh token" -> "JWT Refresh Token Implementation"
     m_hinglish_impl = re.search(
-        r"^([a-zA-Z0-9_\-\s]+?)\s+"
-        r"(?:ko\s+)?(implement|banaye|banao|setup|integrate)\s+"
-        r"kaise\s+(?:kare[n]?|karte\s+hai[n]?|hota\s+hai)\??$",
-        clean_message,
+        r"^([a-zA-Z0-9_\-+#.\s]+?)\s+"
+        r"(?:ko\s+)?(implement|build|create|setup|integrate|banaye[n]?|banao|bana\s+na)\s+"
+        r"(?:karna\s+hai|kaise\s+kare[n]?|karna\s+chahta\s+hu[n]?|hai)[.!?\s]*$",
+        cleaned,
         re.IGNORECASE,
     )
     if m_hinglish_impl:
@@ -460,19 +696,21 @@ def generate_chat_title(message: str) -> str:
         action = m_hinglish_impl.group(2).lower()
         intent = {
             "implement": "Implementation",
-            "banaye": "Creation Guide",
-            "banao": "Creation Guide",
-            "setup": "Setup Guide",
+            "build": "Implementation",
+            "create": "Creation",
+            "setup": "Setup",
             "integrate": "Integration",
+            "banaye": "Implementation",
+            "banao": "Implementation",
+            "bana na": "Implementation",
         }.get(action, "Implementation")
         return enforce_title_limits(f"{topic} {intent}")
 
-    # 10. English: "How to implement/build/create X"
     m_eng_impl = re.search(
-        r"^(?:how\s+to|how\s+do\s+i|how\s+can\s+i)\s+"
+        r"^(?:how\s+to|how\s+do\s+i|how\s+can\s+i|i\s+want\s+to|i\s+need\s+to)\s+"
         r"(implement|build|create|setup|configure|integrate)\s+"
-        r"([a-zA-Z0-9_\-\s]+?)(?:\s+in\s+([a-zA-Z0-9_\-\s]+))?\??$",
-        clean_message,
+        r"([a-zA-Z0-9_\-+#.\s]+?)(?:\s+in\s+([a-zA-Z0-9_\-+#.\s]+))?\??$",
+        cleaned,
         re.IGNORECASE,
     )
     if m_eng_impl:
@@ -491,10 +729,39 @@ def generate_chat_title(message: str) -> str:
             return enforce_title_limits(f"{topic} {noun} in {ctx}")
         return enforce_title_limits(f"{topic} {noun}")
 
-    # 11. Comparison: "Difference between X and Y" / "X vs Y"
+    # 11. State / Behavior Questions:
+    # e.g., "Why is my React component re-rendering?" -> "React Component Re-rendering"
+    # e.g., "Why is my Node.js server crashing?" -> "Node.js Server Crashing"
+    m_state = re.search(
+        r"^(?:why\s+is\s+(?:my|the)?\s*|why\s+does\s+(?:my|the)?\s*|why\s+are\s+(?:my|the)?\s*)"
+        r"([a-zA-Z0-9_\-+#.\s]+?)\s+"
+        r"(re-?rendering|re-?render\s+twice|crashing|failing|not\s+working|slow|undefined|null|looping|hanging|freezing|exiting)\??$",
+        cleaned,
+        re.IGNORECASE,
+    )
+    if m_state:
+        topic = format_title_casing(m_state.group(1).strip())
+        raw_state = m_state.group(2).strip().lower()
+        if "re-render" in raw_state or "rerender" in raw_state:
+            state_str = "Re-rendering"
+        elif "crash" in raw_state:
+            state_str = "Crashing"
+        elif "fail" in raw_state:
+            state_str = "Failing"
+        elif "not working" in raw_state:
+            state_str = "Not Working"
+        elif "slow" in raw_state:
+            state_str = "Performance Debugging"
+        elif "exit" in raw_state:
+            state_str = "Exiting"
+        else:
+            state_str = format_title_casing(raw_state)
+        return enforce_title_limits(f"{topic} {state_str}")
+
+    # 12. Comparison: "Difference between X and Y" / "X vs Y"
     m_diff = re.search(
-        r"^(?:what\s+is\s+the\s+)?difference\s+between\s+([a-zA-Z0-9_\-\s]+?)\s+and\s+([a-zA-Z0-9_\-\s]+?)\??$",
-        clean_message,
+        r"^(?:what\s+is\s+the\s+)?difference\s+between\s+([a-zA-Z0-9_\-+#.\s]+?)\s+and\s+([a-zA-Z0-9_\-+#.\s]+?)\??$",
+        cleaned,
         re.IGNORECASE,
     )
     if m_diff:
@@ -503,8 +770,8 @@ def generate_chat_title(message: str) -> str:
         return enforce_title_limits(f"{t1} vs {t2} Comparison")
 
     m_vs = re.search(
-        r"^([a-zA-Z0-9_\-]+)\s+(?:vs|versus)\s+([a-zA-Z0-9_\-]+)\??$",
-        clean_message,
+        r"^([a-zA-Z0-9_\-+#.]+)\s+(?:vs|versus)\s+([a-zA-Z0-9_\-+#.]+)\??$",
+        cleaned,
         re.IGNORECASE,
     )
     if m_vs:
@@ -512,43 +779,24 @@ def generate_chat_title(message: str) -> str:
         t2 = format_title_casing(m_vs.group(2).strip())
         return enforce_title_limits(f"{t1} vs {t2} Comparison")
 
-    # 12. "Explain X" -> "X Explained"
-    m_exp = re.search(
-        r"^(?:can\s+you\s+(?:please\s+)?)?(?:please\s+)?explain\s+"
-        r"([a-zA-Z0-9_\-\s]+?)\??$",
-        clean_message,
+    # 13. "What is X" / "What are X" -> "X Explained"
+    m_what_is = re.search(
+        r"^(?:what\s+is|what\s+are|what\s+do\s+you\s+mean\s+by)\s+(?:an?|the)?\s*([a-zA-Z0-9_\-+#.\s]+?)\??$",
+        cleaned,
         re.IGNORECASE,
     )
-    if m_exp:
-        raw_topic = m_exp.group(1).strip()
-        if raw_topic.lower() not in ("this", "it", "code", "this code", "everything"):
-            topic = format_title_casing(raw_topic)
-            return enforce_title_limits(f"{topic} Explained")
+    if m_what_is:
+        raw_topic = m_what_is.group(1).strip()
+        topic = format_title_casing(raw_topic)
+        return enforce_title_limits(f"{topic} Explained")
 
-    # 13. General normalization pipeline for arbitrary questions/topics
-    topic_candidate = clean_message
-
-    prefix_strip = [
-        r"^(?:hi|hello|hey|greetings|namaste)\s+(?:nova|bot|ai|there)?[,\s]+",
-        r"^(?:can\s+you\s+(?:please\s+)?(?:tell\s+me|show\s+me|help\s+me\s+with|explain(?:\s+to\s+me)?|give\s+me)?)\s+",
-        r"^(?:could\s+you\s+(?:please\s+)?(?:tell\s+me|show\s+me|help\s+me|explain)?)\s*",
-        r"^(?:please\s+(?:tell\s+me|explain|show\s+me|help\s+me\s+with|provide|give\s+me)?)\s*",
-        r"^(?:i\s+want\s+to\s+(?:know|learn|understand|build|create|implement))\s+(?:about\s+)?",
-        r"^(?:i\s+need\s+help\s+(?:with|to))\s+",
-        r"^(?:tell\s+me\s+(?:about|how\s+to)?)\s*",
-        r"^(?:give\s+me\s+(?:an?\s+)?(?:example\s+of|overview\s+of|tutorial\s+on)?)\s*",
-        r"^(?:what\s+is\s+(?:the\s+)?(?:best\s+way\s+to)?)\s*",
-        r"^(?:what\s+are\s+(?:the\s+)?)\s*",
-        r"^(?:mujhe\s+(?:batao|jan na\s+hai|seekhna\s+hai))\s+",
-        r"^(?:kripya\s+)?",
-    ]
-    for pattern in prefix_strip:
-        topic_candidate = re.sub(pattern, "", topic_candidate, flags=re.IGNORECASE)
+    # 14. General normalization pipeline for arbitrary questions/topics
+    topic_candidate = cleaned
 
     suffix_strip = [
         r"\s+(?:in\s+simple\s+(?:words|terms)|simply|for\s+beginners)$",
         r"\s+(?:step\s+by\s+step|with\s+examples?|in\s+detail)$",
-        r"\s+(?:batao|samjhao|bataiye|samjhaiye|karo)$",
+        r"\s+(?:batao|samjhao|bataiye|samjhaiye|karo|bata\s+do)$",
         r"\s+(?:kya\s+hota\s+hai|kya\s+hai)$",
         r"\s+(?:kaise\s+kare[n]?|kaise\s+hota\s+hai)$",
         r"\s+(?:please|thanks|thank\s+you|thx)$",
